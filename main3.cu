@@ -82,45 +82,6 @@ __global__ void getSkAndRkMaxSize(int *S_row_indices, int *S_col_ptr, int *A_col
     }
 }
 
-// __global__ void extractSubMatrix(int *A_values, int *A_row_indices, int *A_col_ptr, 
-//                                  int *S_row_indices, int *S_col_ptr, 
-//                                  int *Sk_max_sizes, int* Rk_actual_sizes,
-//                                  int *rk_idx, int max_Sk_size, int max_Rk_size, int n) {
-//     int col = blockIdx.x * blockDim.x + threadIdx.x;
-//     if (col < n) {
-//         int start_S = S_col_ptr[col];
-//         int end_S = S_col_ptr[col + 1];
-//         int Sk_size = end_S - start_S;
-        
-//         // Initialize rk_idx with -1
-//         for (int i = 0; i < max_Rk_size; ++i) {
-//             rk_idx[col * max_Rk_size + i] = -1;
-//         }
-
-//         int rk_count = 0;
-//         for (int i = start_S; i < end_S; ++i) {
-//             int row = S_row_indices[i];
-//             int start_A = A_col_ptr[row];
-//             int end_A = A_col_ptr[row + 1];
-//             for (int j = start_A; j < end_A; ++j) {
-//                 int idx = A_row_indices[j];
-//                 bool found = false;
-//                 for (int k = 0; k < rk_count; ++k) {
-//                     if (rk_idx[col * max_Rk_size + k] == idx) {
-//                         found = true;
-//                         break;
-//                     }
-//                 }
-//                 if (!found) {
-//                     rk_idx[col * max_Rk_size + rk_count] = idx;
-//                     rk_count++;
-//                 }
-//             }
-//         }
-//         Rk_actual_sizes[col] = rk_count;
-//     }
-// }
-
 __global__ void extractSubMatrix(double *A_values, int *A_row_indices, int *A_col_ptr, 
                                  int *S_row_indices, int *S_col_ptr, 
                                  int *Sk_max_sizes, int *Rk_actual_sizes, 
