@@ -60,7 +60,13 @@ void printCSCArrays(const std::vector<double>& values,
     std::cout << std::endl;
 }
 
-
+std::vector<double> incrementValues(const std::vector<double>& values) {
+    std::vector<double> incrementedValues(values.size());
+    for (size_t i = 0; i < values.size(); ++i) {
+        incrementedValues[i] = values[i] + 10.0;
+    }
+    return incrementedValues;
+}
 __global__ void getSkAndRkMaxSize(int *S_row_indices, int *S_col_ptr, int *A_col_ptr, int *Sk_max_sizes, int *Rk_max_sizes, int n) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (col < n) {
@@ -121,15 +127,18 @@ __global__ void getSkAndRkMaxSize(int *S_row_indices, int *S_col_ptr, int *A_col
 //     }
 // }
 
-__global__ void extractSubMatrix(double *A_values, int *A_row_indices, int *A_col_ptr, 
+
+__global__ void extractSubMatrix(double *A_values, double *Q_values,
+                                 int *A_row_indices, int *A_col_ptr, 
                                  int *S_row_indices, int *S_col_ptr, 
+                                 int *Q_row_indices, int *Q_col_ptr, 
                                  int *Sk_max_sizes, int *Rk_actual_sizes, 
-                                 int *rk_idx, double *submatrix, int max_Sk_size, int max_Rk_size, int n) {
+                                 int *rk_idx, double *submatrix, double *d_Q_matrix,
+                                 int max_Sk_size, int max_Rk_size, int n) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (col < n) {
         int start_S = S_col_ptr[col];
         int end_S = S_col_ptr[col + 1];
-        int Sk_size = end_S - start_S;
 
         // Initialize rk_idx and submatrix with -1
         for (int i = 0; i < max_Rk_size; ++i) {
@@ -137,6 +146,9 @@ __global__ void extractSubMatrix(double *A_values, int *A_row_indices, int *A_co
         }
         for (int i = 0; i < max_Rk_size * max_Sk_size; ++i) {
             submatrix[col * max_Rk_size * max_Sk_size + i] = 0.0;  // Initialize submatrix with zeros
+        }
+        for (int i = 0; i < max_Rk_size; ++i) {
+            d_Q_matrix[col * max_Rk_size + i] = 0.0;
         }
 
         int rk_count = 0;
@@ -174,6 +186,20 @@ __global__ void extractSubMatrix(double *A_values, int *A_row_indices, int *A_co
                             submatrix[submatrix_idx] = 0.0;
                         }
                     }
+                    // Extract corresponding row from Q matrix
+                    int start_Q = Q_col_ptr[col];
+                    int end_Q = Q_col_ptr[col + 1];
+                    bool row_idx_found = false;
+                    for (int l = start_Q; l < end_Q; ++l) {
+                        if (Q_row_indices[l] == idx) {
+                            d_Q_matrix[col * max_Rk_size + rk_count] = Q_values[l];
+                            row_idx_found = true;
+                            break;
+                        }
+                    }
+                    if (!row_idx_found) {
+                        d_Q_matrix[col * max_Rk_size + rk_count] = 0.0;
+                    }
                     rk_count++;
                 }
             }
@@ -183,40 +209,71 @@ __global__ void extractSubMatrix(double *A_values, int *A_row_indices, int *A_co
 }
 
 
+
+
+
+
 int main() {
     int N = 10; // Example size, adjust as needed
 
-    std::vector<double> values_A, values_S;
-    std::vector<int> rowIndices_A, rowIndices_S;
-    std::vector<int> colPointers_A, colPointers_S;
-    
+    std::vector<double> values_A, values_S, values_Q;
+    std::vector<int> rowIndices_A, rowIndices_S, rowIndices_Q;
+    std::vector<int> colPointers_A, colPointers_S, colPointers_Q;
+
+
     // Generate filename based on the matrix size
     std::string filename = "matrix_" + std::to_string(N) + ".csc";
 
     // Read the matrix from a file for both A and S
     readCSCFromFile(filename, values_A, rowIndices_A, colPointers_A);
     readCSCFromFile(filename, values_S, rowIndices_S, colPointers_S);
+    readCSCFromFile(filename, values_Q, rowIndices_Q, colPointers_Q);
+
+    values_Q = incrementValues(values_Q);
+
+        // Print original and incremented matrices for comparison
+    std::cout << "Original matrix values:" << std::endl;
+    for (double val : values_A) {
+        std::cout << val << " ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "Incremented matrix values (Q):" << std::endl;
+    for (double val : values_Q) {
+        std::cout << val << " ";
+    }
+    std::cout << std::endl;
 
     // Allocate device memory
     int *d_rowIndices_A, *d_colPointers_A;
     int *d_rowIndices_S, *d_colPointers_S;
+    int *d_rowIndices_Q, *d_colPointers_Q;
     int *d_Sk_max_sizes, *d_Rk_max_sizes, *d_Rk_actual_sizes;
     double *d_values_A;
+    double *d_values_Q;
 
     cudaMalloc(&d_rowIndices_A, rowIndices_A.size() * sizeof(int));
     cudaMalloc(&d_colPointers_A, colPointers_A.size() * sizeof(int));
     cudaMalloc(&d_rowIndices_S, rowIndices_S.size() * sizeof(int));
     cudaMalloc(&d_colPointers_S, colPointers_S.size() * sizeof(int));
+    cudaMalloc(&d_rowIndices_Q, rowIndices_Q.size() * sizeof(int));
+    cudaMalloc(&d_colPointers_Q, colPointers_Q.size() * sizeof(int));
+
     cudaMalloc(&d_Sk_max_sizes, N * sizeof(int));
     cudaMalloc(&d_Rk_max_sizes, N * sizeof(int));
     cudaMalloc(&d_Rk_actual_sizes, N * sizeof(int));  // Allocate memory for actual sizes
-    cudaMalloc(&d_values_A, values_A.size() * sizeof(double));  // Allocate memory for A values
+
+    cudaMalloc(&d_values_A, values_A.size() * sizeof(double));  
+    cudaMalloc(&d_values_Q, values_Q.size() * sizeof(double));  
 
     cudaMemcpy(d_rowIndices_A, rowIndices_A.data(), rowIndices_A.size() * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(d_colPointers_A, colPointers_A.data(), colPointers_A.size() * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(d_rowIndices_S, rowIndices_S.data(), rowIndices_S.size() * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(d_colPointers_S, colPointers_S.data(), colPointers_S.size() * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_rowIndices_Q, rowIndices_Q.data(), rowIndices_Q.size() * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_colPointers_Q, colPointers_Q.data(), colPointers_Q.size() * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(d_values_A, values_A.data(), values_A.size() * sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_values_Q, values_Q.data(), values_Q.size() * sizeof(double), cudaMemcpyHostToDevice);
 
     // Launch the getSkAndRkMaxSize kernel
     int blockSize = 256;
@@ -227,20 +284,35 @@ int main() {
     thrust::device_ptr<int> d_Sk_max_sizes_ptr(d_Sk_max_sizes);
     thrust::device_ptr<int> d_Rk_max_sizes_ptr(d_Rk_max_sizes);
 
+    // Sk -> In a thread k, the number of nnz's in the col k of matrix S.
+    // Rk -> In a thread k, treat each element in Sk as the col index, the number of nnz's in all of these cols.
     int Sk_max_size = *(thrust::max_element(d_Sk_max_sizes_ptr, d_Sk_max_sizes_ptr + N));
     int Rk_max_size = *(thrust::max_element(d_Rk_max_sizes_ptr, d_Rk_max_sizes_ptr + N));
 
     // Allocate memory for rk_idx and submatrix
     int *d_rk_idx;
     double *d_submatrix;
+
     cudaMalloc(&d_rk_idx, N * Rk_max_size * sizeof(int));
     cudaMalloc(&d_submatrix, N * Rk_max_size * Sk_max_size * sizeof(double));
 
+    double *d_Q_matrix;
+    cudaMalloc(&d_Q_matrix, N * Rk_max_size  * sizeof(double));
+
     // Launch the extractSubMatrix kernel
-    extractSubMatrix<<<numBlocks, blockSize>>>(d_values_A, d_rowIndices_A, d_colPointers_A,
+    // extractSubMatrix<<<numBlocks, blockSize>>>(d_values_A, d_rowIndices_A, d_colPointers_A,
+    //                                            d_rowIndices_S, d_colPointers_S,
+    //                                            d_Sk_max_sizes, d_Rk_actual_sizes,
+    //                                            d_rk_idx, d_submatrix, Sk_max_size, Rk_max_size, N);
+
+    extractSubMatrix<<<numBlocks, blockSize>>>(d_values_A, d_values_Q,
+                                               d_rowIndices_A, d_colPointers_A,
                                                d_rowIndices_S, d_colPointers_S,
+                                               d_rowIndices_Q, d_colPointers_Q,
                                                d_Sk_max_sizes, d_Rk_actual_sizes,
-                                               d_rk_idx, d_submatrix, Sk_max_size, Rk_max_size, N);
+                                               d_rk_idx, d_submatrix, d_Q_matrix,
+                                               Sk_max_size, Rk_max_size, N);
+
 
     // Copy rk_idx, d_Rk_actual_sizes, and submatrix back to host
     std::vector<int> h_rk_idx(N * Rk_max_size);
@@ -250,6 +322,10 @@ int main() {
     cudaMemcpy(h_rk_idx.data(), d_rk_idx, N * Rk_max_size * sizeof(int), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_Rk_actual_sizes.data(), d_Rk_actual_sizes, N * sizeof(int), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_submatrix.data(), d_submatrix, N * Rk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
+
+    std::vector<double> h_Q_matrix(N * Rk_max_size);
+    cudaMemcpy(h_Q_matrix.data(), d_Q_matrix, N * Rk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
+
 
     // Print the Rk_actual_sizes results
     std::cout << "Rk_actual_sizes:" << std::endl;
@@ -279,6 +355,18 @@ int main() {
             std::cout << std::endl;
         }
     }
+    // Print the Q matrix results
+    std::cout << "Q Matrix:" << std::endl;
+    for (int j = 0; j < Rk_max_size; ++j) {
+        for (int i = 0; i < N; ++i) {
+            double value = h_Q_matrix[i * Rk_max_size + j];
+            std::cout << std::setw(5) << value << " ";
+        }
+        std::cout << std::endl;
+    }
+
+
+
 
 
     // Free device memory
@@ -286,12 +374,15 @@ int main() {
     cudaFree(d_colPointers_A);
     cudaFree(d_rowIndices_S);
     cudaFree(d_colPointers_S);
+    cudaFree(d_rowIndices_Q);
+    cudaFree(d_colPointers_Q);
     cudaFree(d_Sk_max_sizes);
     cudaFree(d_Rk_max_sizes);
     cudaFree(d_Rk_actual_sizes);
     cudaFree(d_rk_idx);
     cudaFree(d_submatrix);
     cudaFree(d_values_A);
+    cudaFree(d_values_Q);
 
     return 0;
 }
