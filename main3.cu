@@ -8,9 +8,67 @@
 #include <thrust/extrema.h>
 #include <vector>
 
-void readCSCFromFile(const std::string &filename, std::vector<double> &values, // each value is the non-zero value
-                     std::vector<int> &rowIndices,    // each value is row index of the non-zero value
-                     std::vector<int> &colPointers) { // each value index into rowIndices vector, point to the first non-zero value in that column
+// Device function for binary search
+__device__ int binarySearch(int *arr, int low, int high, int target) {
+  while (low <= high) {
+    int mid = low + (high - low) / 2;
+
+    // Check if the target is present at mid
+    if (arr[mid] == target) {
+      return mid;
+    }
+
+    // If target is greater, ignore the left half
+    if (arr[mid] < target) {
+      low = mid + 1;
+    }
+    // If target is smaller, ignore the right half
+    else {
+      high = mid - 1;
+    }
+  }
+  // If the target is not present in the array
+  return -1;
+}
+
+// Device function to swap elements
+__device__ void swap(int *arr, int i, int j) {
+  int temp = arr[i];
+  arr[i] = arr[j];
+  arr[j] = temp;
+}
+
+// Device function to partition the array
+__device__ int partition(int *arr, int low, int high) {
+  int pivot = arr[high];
+  int i = low - 1;
+  for (int j = low; j < high; ++j) {
+    if (arr[j] < pivot) {
+      ++i;
+      swap(arr, i, j);
+    }
+  }
+  swap(arr, i + 1, high);
+  return i + 1;
+}
+
+// Device function for quicksort
+__device__ void quicksort(int *arr, int low, int high) {
+  if (low < high) {
+    int pi = partition(arr, low, high);
+    quicksort(arr, low, pi - 1);
+    quicksort(arr, pi + 1, high);
+  }
+}
+
+void readCSCFromFile(
+    const std::string &filename,
+    std::vector<double> &values, // each value is the non-zero value
+    std::vector<int>
+        &rowIndices, // each value is row index of the non-zero value
+    std::vector<int>
+        &colPointers) { // each value index into rowIndices vector, point to the
+                        // first non-zero value in that column
   std::ifstream infile(filename);
   if (!infile.is_open()) {
     std::cerr << "Error opening file for reading" << std::endl;
@@ -62,6 +120,7 @@ void printCSCArrays(const std::vector<double> &values,
 __global__ void getSkAndRkMaxSize(int *S_row_indices, int *S_col_ptr,
                                   int *A_col_ptr, int *Sk_max_sizes,
                                   int *Rk_max_sizes, int n) {
+  // iterate over each column of S
   int col = blockIdx.x * blockDim.x + threadIdx.x;
   if (col < n) {
     int Sk_max_size = 0;
@@ -72,8 +131,9 @@ __global__ void getSkAndRkMaxSize(int *S_row_indices, int *S_col_ptr,
         end_S - start_S; // Number of non-zero entries in column `col` of S
 
     for (int i = start_S; i < end_S; ++i) {
-      int row = S_row_indices[i];
-      int start_A = A_col_ptr[row];
+      int row = S_row_indices[i]; // non-zero entry's row in column `col` of S;
+                                  // row also index into A's column pointers;
+      int start_A = A_col_ptr[row]; // start_A index into A's row indices
       int end_A = A_col_ptr[row + 1];
       Rk_max_size += (end_A - start_A);
     }
@@ -93,9 +153,10 @@ __global__ void extractSubMatrix(double *A_values, int *A_row_indices,
   if (col < n) {
     int start_S = S_col_ptr[col];
     int end_S = S_col_ptr[col + 1];
-    int Sk_size = end_S - start_S;
+    int Sk_size = end_S - start_S; // Number of non-zero entries in column `col`
+                                   // of S; also index into A's column pointers
 
-    // Initialize rk_idx and submatrix with -1
+    // Initialize rk_idx with -1
     for (int i = 0; i < max_Rk_size; ++i) {
       rk_idx[col * max_Rk_size + i] = -1;
     }
@@ -104,12 +165,15 @@ __global__ void extractSubMatrix(double *A_values, int *A_row_indices,
           0.0; // Initialize submatrix with zeros
     }
 
-    int rk_count = 0;
-    for (int i = start_S; i < end_S; ++i) {
-      int row = S_row_indices[i];
-      int start_A = A_col_ptr[row];
+    int rk_count = 0; // number of rows of A that contains non-zero entries
+    for (int i = start_S; i < end_S; ++i) { // iterate over col of A
+      int row = S_row_indices[i];   // Row index in column `col` of S also index
+                                    // into A's col pointers
+      int start_A = A_col_ptr[row]; // start_A index into A's row indices:
       int end_A = A_col_ptr[row + 1];
-      for (int j = start_A; j < end_A; ++j) {
+      for (int j = start_A; j < end_A;
+           ++j) { // process the column[row] of A, A[start_A][row] ...
+                  // A[end_A][row]
         int idx = A_row_indices[j];
         bool found = false;
         for (int k = 0; k < rk_count; ++k) {
@@ -119,33 +183,31 @@ __global__ void extractSubMatrix(double *A_values, int *A_row_indices,
           }
         }
         if (!found) {
+          // update rk_idx to include idx and increment rk_count
           rk_idx[col * max_Rk_size + rk_count] = idx;
-          // Add entry to the submatrix
-          for (int l = start_S; l < end_S; ++l) {
-            int sub_row = S_row_indices[l];
-            int sub_start_A = A_col_ptr[sub_row];
-            int sub_end_A = A_col_ptr[sub_row + 1];
-            bool value_found = false;
-            for (int m = sub_start_A; m < sub_end_A; ++m) {
-              if (A_row_indices[m] == idx) {
-                int submatrix_idx = col * max_Rk_size * max_Sk_size +
-                                    rk_count * max_Sk_size + (l - start_S);
-                submatrix[submatrix_idx] = A_values[m];
-                value_found = true;
-                break;
-              }
-            }
-            if (!value_found) {
-              int submatrix_idx = col * max_Rk_size * max_Sk_size +
-                                  rk_count * max_Sk_size + (l - start_S);
-              submatrix[submatrix_idx] = 0.0;
-            }
-          }
           rk_count++;
         }
       }
     }
     Rk_actual_sizes[col] = rk_count;
+    // Sort rk_idx
+    quicksort(rk_idx, col * max_Rk_size, col * max_Rk_size + rk_count - 1);
+    // generate plain submatrix
+    for (int i = start_S; i < end_S; ++i) {
+      int row = S_row_indices[i];
+      int start_A = A_col_ptr[row];
+      int end_A = A_col_ptr[row + 1];
+      for (int j = start_A; j < end_A; ++j) {
+        int idx = A_row_indices[j];
+        int submatrix_idx =
+            col * max_Rk_size * max_Sk_size +
+            binarySearch(rk_idx, col * max_Rk_size,
+                         col * max_Rk_size + rk_count - 1, idx) *
+                max_Sk_size +
+            (i - start_S);
+        submatrix[submatrix_idx] = A_values[j];
+      }
+    }
   }
 }
 
