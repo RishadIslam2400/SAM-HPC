@@ -99,15 +99,24 @@ int main()
     std::vector<csc_matrix> sequence;
     unsigned int numMatrices = 70;
 
-    csc_matrix A0;
-    bool readA0 = read_mat("/home/rishad/SAM-HPC/data/matrix_2.mat", A0);
-
-    if (!readA0) {
-        std::cerr << "Error reading matrix file" << std::endl;
-        return -1;
+    for (int i = 1 ; i <= numMatrices; i++) {
+        std::string fileName = "/home/rishad/SAM-HPC/data/matrix_" + std::to_string(i) + ".mat";
+        csc_matrix temp;
+        if (read_mat(fileName.c_str(), temp)) {
+            sequence.push_back(temp);
+        }
+        else {
+            std::cerr << "Error reading matrix file" << std::endl;
+            return -1;
+        }
     }
 
-    A0.printMatrix();
+    // Example: Print the first matrix
+    if (!sequence.empty())
+    {
+        std::cout << "First matrix in the sequence:" << std::endl;
+        sequence[0].printMatrix();
+    }
 
     return 0;    
 }
