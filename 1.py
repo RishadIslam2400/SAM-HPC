@@ -175,8 +175,14 @@ for k, submatrix in sub_mat_dict.items():
     Q_dict[k] = Q
     R_dict[k] = R
     
-    # Print the Q and R matrices to verify
-    print(f"Q matrix for submatrix k={k}:")
-    print(Q)
-    print(f"R matrix for submatrix k={k}:")
-    print(R)
+for k in range(N):
+    print(f"Q matrix for k={k}:")
+    print(Q_dict[k])
+
+for k in range(N):    
+    print(f"R matrix for k={k}:")
+    print(R_dict[k])    
+
+for k in range(N):
+    print(f"submatrix for k={k}:")
+    print(sub_mat_dict[k])

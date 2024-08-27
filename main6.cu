@@ -10,6 +10,8 @@
 
 #define N 10
 
+
+
 void readCSCFromFile(const std::string& filename,
                      std::vector<double>& values,
                      std::vector<int>& rowIndices,
@@ -173,14 +175,43 @@ __device__ void qrDecomposition(double* submatrix, double* Q, double* R, int act
     }
 }
 
+__device__ void computeQtb(double* Q, double* b, double* Qtb, int actual_rows, int actual_cols) {
+    // Initialize Qtb to zero for this thread
+    for (int i = 0; i < actual_cols; ++i) {
+        Qtb[i] = 0;
+    }
+
+    // Compute Q^T * b = sum(Q[j, i] * b[j]) for each i
+    for (int i = 0; i < actual_cols; ++i) {       // iterate over columns of Q (rows of Q^T)
+        for (int j = 0; j < actual_rows; ++j) {   // iterate over rows of Q (columns of Q^T)
+            Qtb[i] += Q[j * actual_cols + i] * b[j];
+        }
+    }
+}
+
+__device__ void backSubstitution(double* R, double* Qtb, double* x_matrix, int n, int col, int max_Rk_size) {
+    int x_index = col * max_Rk_size; // Calculate the starting index for the solution in x_matrix
+    for (int i = n - 1; i >= 0; i--) {
+        double sum = 0.0;
+        for (int j = i + 1; j < n; j++) {
+            sum += R[i * n + j] * x_matrix[x_index + j]; // Use the correctly offset x values
+        }
+        x_matrix[x_index + i] = (Qtb[i] - sum) / R[i * n + i];  // Compute and store directly in x_matrix
+    }
+}
+
+
+
+
 // Kernel that performs submatrix extraction followed by QR decomposition
-__global__ void extractSubMatrix(double *A_values, double *b_values,
+__global__ void kernel1(double *A_values, double *b_values,
                                  int *A_row_indices, int *A_col_ptr, 
                                  int *S_row_indices, int *S_col_ptr, 
                                  int *b_row_indices, int *b_col_ptr, 
-                                 int *Sk_max_sizes, int *Rk_actual_sizes, 
-                                 int *rk_idx, double *submatrix, double *d_b_matrix,
-                                 double *Q, double *R,
+                                 int *Rk_actual_sizes, int *Sk_actual_sizes,
+                                 int *rk_idx, double *submatrix, double *b_matrix,
+                                 double *Q, double *R, 
+                                 double *Qtb, double *x_matrix,
                                  int max_Sk_size, int max_Rk_size, int n) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (col < n) {
@@ -195,7 +226,7 @@ __global__ void extractSubMatrix(double *A_values, double *b_values,
             submatrix[col * max_Rk_size * max_Sk_size + i] = 0.0;  // Initialize submatrix with zeros
         }
         for (int i = 0; i < max_Rk_size; ++i) {
-            d_b_matrix[col * max_Rk_size + i] = 0.0;
+            b_matrix[col * max_Rk_size + i] = 0.0;
         }
 
         int rk_count = 0;
@@ -239,13 +270,13 @@ __global__ void extractSubMatrix(double *A_values, double *b_values,
                     bool row_idx_found = false;
                     for (int l = start_b; l < end_b; ++l) {
                         if (b_row_indices[l] == idx) {
-                            d_b_matrix[col * max_Rk_size + rk_count] = b_values[l];
+                            b_matrix[col * max_Rk_size + rk_count] = b_values[l];
                             row_idx_found = true;
                             break;
                         }
                     }
                     if (!row_idx_found) {
-                        d_b_matrix[col * max_Rk_size + rk_count] = 0.0;
+                        b_matrix[col * max_Rk_size + rk_count] = 0.0;
                     }
                     rk_count++;
                 }
@@ -257,6 +288,14 @@ __global__ void extractSubMatrix(double *A_values, double *b_values,
                         &Q[col * max_Rk_size * max_Sk_size],
                         &R[col * max_Rk_size * max_Sk_size],
                         rk_count, end_S - start_S, max_Rk_size, max_Sk_size);
+
+
+
+        computeQtb(&Q[col * max_Rk_size * max_Sk_size], &b_matrix[col * max_Rk_size],
+                   &Qtb[col * max_Sk_size], Rk_actual_sizes[col], Sk_actual_sizes[col]);
+
+        backSubstitution(&R[col * max_Rk_size * max_Sk_size], &Qtb[col * max_Sk_size], x_matrix, Sk_actual_sizes[col], col, max_Rk_size);
+       
     }
 }
 
@@ -338,22 +377,34 @@ int main() {
     int *d_rk_idx;
     cudaMalloc(&d_rk_idx, N * Rk_max_size * sizeof(int));
 
-    // Launch the extractSubMatrix kernel
-    extractSubMatrix<<<numBlocks, blockSize>>>(d_values_A, d_values_b,
+    double *d_x_solutions;
+    cudaMalloc(&d_x_solutions, N * Sk_max_size  * sizeof(double));
+
+    double *d_Qtb;
+    cudaMalloc(&d_Qtb, N * Sk_max_size * sizeof(double));
+
+    computeSk<<<numBlocks, blockSize>>>(d_rowIndices_S, d_colPointers_S, N, d_sk, d_Sk_actual_sizes, Sk_max_size);
+
+    kernel1<<<numBlocks, blockSize>>>(d_values_A, d_values_b,
                                                d_rowIndices_A, d_colPointers_A,
                                                d_rowIndices_S, d_colPointers_S,
                                                d_rowIndices_b, d_colPointers_b,
-                                               d_Sk_max_sizes, d_Rk_actual_sizes,
+                                               d_Rk_actual_sizes, d_Sk_actual_sizes,
                                                d_rk_idx, d_submatrix, d_b_matrix,
                                                d_Q, d_R,
+                                               d_Qtb, d_x_solutions,
                                                Sk_max_size, Rk_max_size, N);
 
     // Copy Q and R matrices from device to host
     std::vector<double> h_Q(N * Rk_max_size * Sk_max_size);
     std::vector<double> h_R(N * Rk_max_size * Sk_max_size);
+    std::vector<double> h_submatrix(N * Rk_max_size * Sk_max_size);
+    std::vector<double> h_x_solutions(N * Sk_max_size);
 
     cudaMemcpy(h_Q.data(), d_Q, N * Rk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_R.data(), d_R, N * Rk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_submatrix.data(), d_submatrix, N * Rk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_x_solutions.data(), d_x_solutions, N * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
 
     for (int i = 0; i < N; ++i) {
         std::cout << "Q matrix for column " << i << ":\n";
@@ -372,6 +423,30 @@ int main() {
             std::cout << std::endl;
         }
     }
+
+    // Print the submatrix results
+    std::cout << "Submatrix:" << std::endl;
+    for (int i = 0; i < N; ++i) {
+        std::cout << "Submatrix for column " << i << ": " << std::endl;
+        for (int j = 0; j < Rk_max_size; ++j) {
+            for (int k = 0; k < Sk_max_size; ++k) {
+                double value = h_submatrix[i * Rk_max_size * Sk_max_size + j * Sk_max_size + k];
+                std::cout << std::setw(5) << value << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    for (int i = 0; i < N; ++i) {
+        std::cout << "Solution for column " << i << ": " << std::endl;
+        for (int j = 0; j < Sk_max_size; ++j) {
+            double value = h_x_solutions[i * Sk_max_size + j];
+            std::cout << std::setw(5) << value << " ";
+        }
+        std::cout << std::endl;
+    }
+
+
 
     // Free device memory
     cudaFree(d_rowIndices_A);
