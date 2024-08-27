@@ -3,45 +3,9 @@
 #include <iostream>
 #include <vector>
 #include <tuple>
+#include <functional>
 
-class csc_matrix
-{
-public:
-    csc_matrix() = default;
-    csc_matrix(const std::vector<double>& values, const std::vector<size_t>& rowIndices, const std::vector<size_t>& colPointers, size_t numCols, size_t numRows, size_t nnz)
-        : mValues(values), mRowIndices(rowIndices), mColPointers(colPointers), mNumCols(numCols), mNumRows(numRows), mNNZ(nnz) { }
-
-    // Getters
-    const std::vector<double>& getValues() const { return mValues; }
-    const std::vector<size_t>& getRowIndices() const { return mRowIndices; }
-    const std::vector<size_t>& getColPointers() const { return mColPointers; }
-    size_t getNumCols() const { return mNumCols; }
-    size_t getNumRows() const { return mNumRows; }
-    size_t getNNZ() const { return mNNZ; }
-
-    // Setters
-    void setValues(const std::vector<double>& values) { mValues = values; }
-    void setRowIndices(const std::vector<size_t>& rowIndices) { mRowIndices = rowIndices; }
-    void setColPointers(const std::vector<size_t>& colPointers) { mColPointers = colPointers; }
-    void setNumCols(size_t numCols) { mNumCols = numCols; }
-    void setNumRows(size_t numRows) { mNumRows = numRows; }
-    void setNNZ(size_t nnz) { mNNZ = nnz; }
-
-    void printMatrix() const {
-        for (size_t col = 0; col < mNumCols; ++col) {
-            for (size_t idx = mColPointers[col]; idx < mColPointers[col + 1]; ++idx) {
-                std::cout << "(" << mRowIndices[idx] + 1 << ", " << col + 1 << ") = " << mValues[idx] << std::endl;
-            }
-        }
-    }
-private:
-    std::vector<double> mValues;
-    std::vector<size_t> mRowIndices;
-    std::vector<size_t> mColPointers;
-    size_t mNumCols;
-    size_t mNumRows;
-    size_t mNNZ;
-};
+#include "SAM_Func.hpp"
 
 bool read_mat(const char *filename, csc_matrix& sparse_matrix)
 {
@@ -77,6 +41,12 @@ bool read_mat(const char *filename, csc_matrix& sparse_matrix)
     size_t numCols = static_cast<size_t>(mxGetN(a));        // Number of columns
     size_t nnz = static_cast<size_t>(colPointers[numCols]); // Number of non-zero elements
 
+    // Calculate the number of non-zero elements per column
+    std::vector<size_t> nnzPerCol(numCols);
+    for (size_t col = 0; col < numCols; ++col) {
+        nnzPerCol[col] = colPointers[col + 1] - colPointers[col];
+    }
+
     // Populate the sparse matrix
     std::vector<double> values(val, val + nnz);
     std::vector<size_t> rows(rowIndices, rowIndices + nnz);
@@ -85,6 +55,7 @@ bool read_mat(const char *filename, csc_matrix& sparse_matrix)
     sparse_matrix.setValues(values);
     sparse_matrix.setRowIndices(rows);
     sparse_matrix.setColPointers(cols);
+    sparse_matrix.setNNZPerCol(nnzPerCol);
     sparse_matrix.setNumCols(numCols);
     sparse_matrix.setNumRows(numRows);
     sparse_matrix.setNNZ(nnz);
@@ -103,7 +74,7 @@ int main()
         std::string fileName = "/home/rishad/SAM-HPC/data/matrix_" + std::to_string(i) + ".mat";
         csc_matrix temp;
         if (read_mat(fileName.c_str(), temp)) {
-            sequence.push_back(temp);
+            sequence.emplace_back(std::move(temp));
         }
         else {
             std::cerr << "Error reading matrix file" << std::endl;
@@ -111,11 +82,14 @@ int main()
         }
     }
 
-    // Example: Print the first matrix
-    if (!sequence.empty())
-    {
-        std::cout << "First matrix in the sequence:" << std::endl;
-        sequence[0].printMatrix();
+    csc_matrix A0(std::cref(sequence[0]));    
+
+    for (int i = 1; i < numMatrices; i++) {
+        csc_matrix Ak(std::cref(sequence[i]));
+        csc_matrix Sk;
+        csc_matrix Mk;
+        simple_sparsity_pattern(A0, Sk);
+        Mk = SAM(A0, Ak, Sk);
     }
 
     return 0;    
