@@ -175,24 +175,37 @@ __device__ void qrDecomposition(double* submatrix, double* Q, double* R, int act
     }
 }
 
-__device__ void computeQtb(double* Q, double* b, double* Qtb, int actual_rows, int actual_cols) {
-    // Initialize Qtb to zero for this thread
-    for (int i = 0; i < actual_cols; ++i) {
-        Qtb[i] = 0;
-    }
-
-    // Compute Q^T * b = sum(Q[j, i] * b[j]) for each i
-    for (int i = 0; i < actual_cols; ++i) {       // iterate over columns of Q (rows of Q^T)
-        for (int j = 0; j < actual_rows; ++j) {   // iterate over rows of Q (columns of Q^T)
-            Qtb[i] += Q[j * actual_cols + i] * b[j];
+__device__ void computeQtb(double* Q, double* b, double* Qtb, int Q_num_rows, int Q_num_cols, int max_Sk_size) {
+    
+    int Qtb_num_rows = Q_num_cols;
+    for (int i = 0; i < Q_num_cols; i++) {
+        double sum = 0.0;
+        for (int j = 0; j < Q_num_rows; j++) {
+            sum += Q[j * max_Sk_size + i] * b[j];
         }
+        Qtb[i] = sum;
     }
 }
+
+__device__ void computeQtb1(double* Q, double* b, double* Qtb, int Q_num_rows, int Q_num_cols, int max_Sk_size) {
+    
+    int Qtb_num_rows = Q_num_cols;
+    for (int i = 0; i < Q_num_cols; i++) {
+        double sum = 0.0;
+        for (int j = 0; j < Q_num_rows; j++) {
+            // printf("Q[%d][%d] = %f, b[%d] = %f\n", j, i, Q[j * max_Sk_size + i], j, b[j]);
+            sum += Q[j * max_Sk_size + i] * b[j];
+        }
+        Qtb[i] = sum;
+    }
+}
+
+
 
 __device__ void backSubstitution(double* R, double* Qtb, double* x_matrix, int n, int col, int max_Sk_size) {
     int x_start = col * max_Sk_size;
     for (int i = 0; i < n; i++) {
-        x_matrix[x_start + i] = Qtb[i]/ R[i * n + i];
+        x_matrix[x_start + i] = Qtb[i]/ R[i * max_Sk_size + i];
     }
 
     // int x_index = col * max_Rk_size; // Calculate the starting index for the solution in x_matrix
@@ -295,29 +308,50 @@ __global__ void kernel1(double *A_values, double *b_values,
                         rk_count, end_S - start_S, max_Rk_size, max_Sk_size);
 
 
+        if (col==0){
+            computeQtb1(&Q[col * max_Rk_size * max_Sk_size], &b_matrix[col * max_Rk_size],
+                   &Qtb[col * max_Sk_size], Rk_actual_sizes[col], Sk_actual_sizes[col], max_Sk_size);
+        }else{
+            computeQtb(&Q[col * max_Rk_size * max_Sk_size], &b_matrix[col * max_Rk_size],
+                   &Qtb[col * max_Sk_size], Rk_actual_sizes[col], Sk_actual_sizes[col], max_Sk_size);
+        }
 
-        computeQtb(&Q[col * max_Rk_size * max_Sk_size], &b_matrix[col * max_Rk_size],
-                   &Qtb[col * max_Sk_size], Rk_actual_sizes[col], Sk_actual_sizes[col]);
 
         backSubstitution(&R[col * max_Sk_size * max_Sk_size], &Qtb[col * max_Sk_size], x_matrix, Sk_actual_sizes[col], col, max_Sk_size);
 
-        // if (col == 1)
-        // {
-        //     // Print R matrix for column 1
-        //     printf("Matrix R (column 1):\n");
-        //     for (int i = 0; i < Sk_actual_sizes[col]; i++) {
-        //         for (int j = 0; j < Sk_actual_sizes[col]; j++) {
-        //             printf("%f ", R[col * max_Sk_size * max_Sk_size + i * max_Sk_size + j]);
-        //         }
-        //         printf("\n");
-        //     }
+        if (col == 0)
+        {
+
+            printf("Rk_actual_sizes[%d] = %d, Sk_actual_sizes[%d] = %d\n", col, Rk_actual_sizes[col], col, Sk_actual_sizes[col]);
+            // Print Q matrix for column 0
+            printf("Matrix Q (column 0):\n");
+            for (int i = 0; i < max_Rk_size; i++) {
+                for (int j = 0; j < max_Sk_size; j++) {
+                    printf("%f ", Q[col * max_Rk_size * max_Sk_size + i * max_Sk_size + j]);
+                }
+                printf("\n");
+            }
             
-        //     // Print Qtb vector for column 1
-        //     printf("Vector Qtb (column 1):\n");
-        //     for (int i = 0; i < Sk_actual_sizes[col]; i++) {
-        //         printf("%f\n", Qtb[col * max_Sk_size + i]);
-        //     }
-        // }
+            // Print b vector for column 0
+            printf("Vector b (column 0):\n");
+            for (int i = 0; i < max_Rk_size; i++) {
+                printf("%f\n", b_matrix[col * max_Sk_size + i]);
+            }
+            // Print R matrix for column 1
+            printf("Matrix R (column 0):\n");
+            for (int i = 0; i < max_Sk_size; i++) {
+                for (int j = 0; j < max_Sk_size; j++) {
+                    printf("%f ", R[col * max_Sk_size * max_Sk_size + i * max_Sk_size + j]);
+                }
+                printf("\n");
+            }
+            
+            // Print Qtb vector for column 1
+            printf("Vector Qtb (column 0):\n");
+            for (int i = 0; i < Sk_actual_sizes[col]; i++) {
+                printf("%f\n", Qtb[col * max_Sk_size + i]);
+            }
+        }
     }
 }
 
