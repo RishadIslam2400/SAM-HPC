@@ -189,15 +189,20 @@ __device__ void computeQtb(double* Q, double* b, double* Qtb, int actual_rows, i
     }
 }
 
-__device__ void backSubstitution(double* R, double* Qtb, double* x_matrix, int n, int col, int max_Rk_size) {
-    int x_index = col * max_Rk_size; // Calculate the starting index for the solution in x_matrix
-    for (int i = n - 1; i >= 0; i--) {
-        double sum = 0.0;
-        for (int j = i + 1; j < n; j++) {
-            sum += R[i * n + j] * x_matrix[x_index + j]; // Use the correctly offset x values
-        }
-        x_matrix[x_index + i] = (Qtb[i] - sum) / R[i * n + i];  // Compute and store directly in x_matrix
+__device__ void backSubstitution(double* R, double* Qtb, double* x_matrix, int n, int col, int max_Sk_size) {
+    int x_start = col * max_Sk_size;
+    for (int i = 0; i < n; i++) {
+        x_matrix[x_start + i] = Qtb[i]/ R[i * n + i];
     }
+
+    // int x_index = col * max_Rk_size; // Calculate the starting index for the solution in x_matrix
+    // for (int i = n - 1; i >= 0; i--) {
+    //     double sum = 0.0;
+    //     for (int j = i + 1; j < n; j++) {
+    //         sum += R[i * n + j] * x_matrix[x_index + j]; // Use the correctly offset x values
+    //     }
+    //     x_matrix[x_index + i] = (Qtb[i] - sum) / R[i * n + i];  // Compute and store directly in x_matrix
+    // }
 }
 
 
@@ -286,7 +291,7 @@ __global__ void kernel1(double *A_values, double *b_values,
 
         qrDecomposition(&submatrix[col * max_Rk_size * max_Sk_size],
                         &Q[col * max_Rk_size * max_Sk_size],
-                        &R[col * max_Rk_size * max_Sk_size],
+                        &R[col * max_Sk_size * max_Sk_size],
                         rk_count, end_S - start_S, max_Rk_size, max_Sk_size);
 
 
@@ -294,8 +299,25 @@ __global__ void kernel1(double *A_values, double *b_values,
         computeQtb(&Q[col * max_Rk_size * max_Sk_size], &b_matrix[col * max_Rk_size],
                    &Qtb[col * max_Sk_size], Rk_actual_sizes[col], Sk_actual_sizes[col]);
 
-        backSubstitution(&R[col * max_Rk_size * max_Sk_size], &Qtb[col * max_Sk_size], x_matrix, Sk_actual_sizes[col], col, max_Rk_size);
-       
+        backSubstitution(&R[col * max_Sk_size * max_Sk_size], &Qtb[col * max_Sk_size], x_matrix, Sk_actual_sizes[col], col, max_Sk_size);
+
+        // if (col == 1)
+        // {
+        //     // Print R matrix for column 1
+        //     printf("Matrix R (column 1):\n");
+        //     for (int i = 0; i < Sk_actual_sizes[col]; i++) {
+        //         for (int j = 0; j < Sk_actual_sizes[col]; j++) {
+        //             printf("%f ", R[col * max_Sk_size * max_Sk_size + i * max_Sk_size + j]);
+        //         }
+        //         printf("\n");
+        //     }
+            
+        //     // Print Qtb vector for column 1
+        //     printf("Vector Qtb (column 1):\n");
+        //     for (int i = 0; i < Sk_actual_sizes[col]; i++) {
+        //         printf("%f\n", Qtb[col * max_Sk_size + i]);
+        //     }
+        // }
     }
 }
 
@@ -371,7 +393,7 @@ int main() {
     cudaMalloc(&d_submatrix, N * Rk_max_size * Sk_max_size * sizeof(double));
     cudaMalloc(&d_b_matrix, N * Rk_max_size  * sizeof(double));
     cudaMalloc(&d_Q, N * Rk_max_size * Sk_max_size * sizeof(double));
-    cudaMalloc(&d_R, N * Rk_max_size * Sk_max_size * sizeof(double));
+    cudaMalloc(&d_R, N * Sk_max_size * Sk_max_size * sizeof(double));
 
     // Allocate space for rk_idx, Sk_actual_sizes, Rk_actual_sizes
     int *d_rk_idx;
@@ -400,11 +422,15 @@ int main() {
     std::vector<double> h_R(N * Rk_max_size * Sk_max_size);
     std::vector<double> h_submatrix(N * Rk_max_size * Sk_max_size);
     std::vector<double> h_x_solutions(N * Sk_max_size);
+    std::vector<double> h_Qtb(N * Sk_max_size);
+
 
     cudaMemcpy(h_Q.data(), d_Q, N * Rk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_R.data(), d_R, N * Rk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_R.data(), d_R, N * Sk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_submatrix.data(), d_submatrix, N * Rk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_x_solutions.data(), d_x_solutions, N * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_Qtb.data(), d_Qtb, N * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
+
 
     for (int i = 0; i < N; ++i) {
         std::cout << "Q matrix for column " << i << ":\n";
@@ -418,7 +444,7 @@ int main() {
         std::cout << "R matrix for column " << i << ":\n";
         for (int row = 0; row < Sk_max_size; ++row) {
             for (int col = 0; col < Sk_max_size; ++col) {
-                std::cout << std::setw(5) << h_R[i * Rk_max_size * Sk_max_size + row * Sk_max_size + col] << " ";
+                std::cout << std::setw(5) << h_R[i * Sk_max_size * Sk_max_size + row * Sk_max_size + col] << " ";
             }
             std::cout << std::endl;
         }
@@ -436,6 +462,17 @@ int main() {
             std::cout << std::endl;
         }
     }
+
+    for (int i = 0; i < N; ++i) {
+        std::cout << "Qtb " << i << ": " << std::endl;
+        for (int j = 0; j < Sk_max_size; ++j) {
+            double value = h_Qtb[i * Sk_max_size + j];
+            std::cout << std::setw(5) << value << " ";
+        }
+        std::cout << std::endl;
+    }
+
+
 
     for (int i = 0; i < N; ++i) {
         std::cout << "Solution for column " << i << ": " << std::endl;
