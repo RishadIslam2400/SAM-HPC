@@ -458,7 +458,6 @@ int main() {
     std::vector<double> h_x_solutions(N * Sk_max_size);
     std::vector<double> h_Qtb(N * Sk_max_size);
 
-
     cudaMemcpy(h_Q.data(), d_Q, N * Rk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_R.data(), d_R, N * Sk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_submatrix.data(), d_submatrix, N * Rk_max_size * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
