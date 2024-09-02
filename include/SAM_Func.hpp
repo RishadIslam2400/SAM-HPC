@@ -3,6 +3,7 @@
 #include <vector>
 #include <mat.h>
 #include <iostream>
+#include <set>
 
 class csc_matrix
 {
@@ -74,20 +75,58 @@ void simple_sparsity_pattern(const csc_matrix& A, csc_matrix& S)
     S.setValues(std::cref(values));
 }
 
+void extractSubmatrix(const std::vector<size_t>& submatrixColIndices, std::vector<size_t>& submatrixRowIndices, std::vector<size_t>& submatrixRowPointers, const std::vector<size_t>& submatrixColPointers, const csc_matrix& S, int& maxSk, int& maxRk) {
+    // Preprocessing the sparsity pattern
+    const size_t numCols = S.getNumCols();
+    const std::vector<size_t> nnzPerCol = S.getNNZPerCol();
+
+    // Naive implementation
+    // For each column find the nonzero indices
+    // For each column corresponding to the nonzero indices get a set union of non zero indices for the row indices 
+    for (size_t j = 0; j < numCols; j++) {
+        // Static allocation is difficult since we do not know the size beforehand
+        // Use set to keep track of the unique row indices
+        std::set<size_t> rowIndicesPerCol;
+        const auto start = submatrixColIndices.begin() + submatrixColPointers[j];
+        const auto end = submatrixColIndices.begin() + submatrixColPointers[j + 1];
+
+        // Update the maxSk value for the current column
+        maxSk = std::max(maxSk, static_cast<int>(nnzPerCol[j]));
+
+        // Iterate over all the non zero indices in the current columna and add the nonzero indices of the respecticve columns to the set
+        for (auto it = start; it != end; ++it) {
+            const size_t col = *it;
+            auto colStart = submatrixColIndices.begin() + submatrixColPointers[col];
+            auto colEnd = submatrixColIndices.begin() + submatrixColPointers[col + 1];
+            rowIndicesPerCol.insert(colStart, colEnd);
+        }
+
+        // Update the maxRk value for the current column
+        maxRk = std::max(maxRk, static_cast<int>(rowIndicesPerCol.size()));
+
+        // Insert into the row indices for the submatrix for the current column
+        submatrixRowIndices.insert(submatrixRowIndices.end(), rowIndicesPerCol.begin(), rowIndicesPerCol.end());
+
+        // Keep track of the number of non zero elements in the submatrix
+        submatrixRowPointers.push_back(submatrixRowIndices.size());
+    }
+}
+
 
 csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_matrix& S)
 {
-    // Preprocessing the sparsity pattern
-    std::vector<size_t> submatrixColIndices(S.getRowIndices());
-    std::vector<size_t> nnzPerCol(S.getNNZPerCol());
-    std::vector<size_t> colPointers(S.getColPointers());
-    std::vector<size_t> submatrixRowIndices;
     csc_matrix MM;
 
-    size_t numCols = S.getNumCols();
-    for (size_t j = 0; j < numCols; j++) {
-        std::vector<size_t> submatrixRowIndicesPerCol;
-    }
- 
+    // Construct the submatrix information for each column
+    std::vector<size_t> submatrixColIndices(S.getRowIndices());
+    std::vector<size_t> submatrixColPointers(S.getColPointers());
+    std::vector<size_t> submatrixRowIndices;
+    std::vector<size_t> submatrixRowPointers{0};
+
+    // Keep track of the maximum number of non zeros in the row and columns of the submatrix
+    int maxSk = 0;
+    int maxRk = 0;
+    extractSubmatrix(submatrixColIndices, submatrixRowIndices, submatrixRowPointers, submatrixColPointers, S, maxSk, maxRk);
+
     return MM;
 }
