@@ -167,18 +167,15 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
             // // Get the iterators for the non-zero values of the column
             const size_t col = *colStart;
             auto start = sourceMatrixValues.begin() + submatrixColPointers[col];
+            auto end = sourceMatrixValues.begin() + submatrixColPointers[col + 1];
             const size_t nnz = submatrixColPointers[col + 1] - submatrixColPointers[col];
 
             // Get the row indices for the column
             auto rowIndexStart = sourceMatrixRowIndices.begin() + submatrixColPointers[col];
 
             // Check the row index for the current column and insert the non zero values in the exact position in the submatrix
-            for (size_t k = 0; k < nnz; ++k, ++rowIndexStart, ++start) {
-                if (rowIndexMap.find(*rowIndexStart) != rowIndexMap.end()) {
-                    submatrix[rowIndexMap[*rowIndexStart]][j] = *start;
-                } else {
-                    continue;
-                }
+            for (auto k = start; k != end; ++k, ++rowIndexStart) {
+               submatrix[rowIndexMap[*rowIndexStart]][j] = *k;
             }
         }
 
