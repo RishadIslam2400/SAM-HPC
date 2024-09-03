@@ -63,6 +63,9 @@
         "iomanip": "cpp",
         "mutex": "cpp",
         "shared_mutex": "cpp",
-        "cfenv": "cpp"
+        "cfenv": "cpp",
+        "bitset": "cpp",
+        "optional": "cpp",
+        "__nullptr": "cpp"
     }
 }

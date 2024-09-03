@@ -7,6 +7,7 @@
 
 #include "SAM_Func.hpp"
 
+// Function to read .mat file directly using MATLAB API
 bool read_mat(const char *filename, csc_matrix& sparse_matrix)
 {
     // Read the .mat file
@@ -67,9 +68,13 @@ bool read_mat(const char *filename, csc_matrix& sparse_matrix)
 
 int main()
 {
+    // Seqeunce of matrices
     std::vector<csc_matrix> sequence;
+
+    // Number of matrices. Currently specified as per the requirement of the application
     unsigned int numMatrices = 70;
 
+    // Read the sequence of the matrices from .mat files and store them in the vector
     for (int i = 1 ; i <= numMatrices; i++) {
         std::string fileName = "/home/rishad/SAM-HPC/data/matrix_" + std::to_string(i) + ".mat";
         csc_matrix temp;
@@ -82,13 +87,19 @@ int main()
         }
     }
 
+    // The initial matrix is the target matrix
     csc_matrix A0(std::cref(sequence[0]));    
 
-    for (int i = 1; i < numMatrices; i++) {
-        csc_matrix Ak(std::cref(sequence[i]));
-        csc_matrix Sk;
-        csc_matrix Mk;
+    // SAM function to map other matrices in the sequence to the target matrix
+    for (int i = 1; i < 2; i++) {
+        csc_matrix Ak(std::cref(sequence[i])); // Current source matrix
+        csc_matrix Sk;                         // Sparsity pattern for the SAM
+        csc_matrix Mk;                         // Actual values of the map
+        
+        // Compute the sparsity pattern for SAM for the current source matrix
         simple_sparsity_pattern(A0, Sk);
+        
+        // Compute the map
         Mk = SAM(A0, Ak, Sk);
     }
 

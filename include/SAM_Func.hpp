@@ -4,14 +4,20 @@
 #include <mat.h>
 #include <iostream>
 #include <set>
+#include <unordered_map>
 
+// Representation of the sparse matrices
+// It uses compressed sparse column (CSC) storage format
 class csc_matrix
 {
 public:
     csc_matrix() = default;
+    
+    // Constructor
     csc_matrix(const std::vector<double> &values, const std::vector<size_t> &rowIndices, const std::vector<size_t> &colPointers, std::vector<size_t> &NNZPerCol, size_t numCols, size_t numRows, size_t nnz)
         : mValues(values), mRowIndices(rowIndices), mColPointers(colPointers), mNNZPerCol(NNZPerCol), mNumCols(numCols), mNumRows(numRows), mNNZ(nnz) {}
 
+    // Copy constructor
     csc_matrix(const csc_matrix &other)
     {
         mValues = other.getValues();
@@ -23,7 +29,7 @@ public:
         mNNZ = other.mNNZ;
     }
 
-    // Getters
+    // Getters - the vectors are const references 
     const std::vector<double> &getValues() const { return mValues; }
     const std::vector<size_t> &getRowIndices() const { return mRowIndices; }
     const std::vector<size_t> &getColPointers() const { return mColPointers; }
@@ -53,15 +59,17 @@ public:
     }
 
 private:
-    std::vector<double> mValues;
-    std::vector<size_t> mRowIndices;
-    std::vector<size_t> mColPointers;
-    std::vector<size_t> mNNZPerCol;
-    size_t mNumCols;
-    size_t mNumRows;
-    size_t mNNZ;
+    std::vector<double> mValues;      // Non-zero elements
+    std::vector<size_t> mRowIndices;  // Row indices
+    std::vector<size_t> mColPointers; // Pointer to the start of each column in the row indices array
+    std::vector<size_t> mNNZPerCol;   // Number of non zero elements in each column
+    size_t mNumCols;                  // total number of columns
+    size_t mNumRows;                  // total number of rows
+    size_t mNNZ;                      // total number of non-zero elements
 };
 
+// Function to generate a simple sparsity pattern
+// The sparsity pattern is same as the input matrix
 void simple_sparsity_pattern(const csc_matrix& A, csc_matrix& S)
 {
     S.setRowIndices(A.getRowIndices());
@@ -71,11 +79,13 @@ void simple_sparsity_pattern(const csc_matrix& A, csc_matrix& S)
     S.setNNZ(A.getNNZ());
     S.setNNZPerCol(A.getNNZPerCol());
 
+    // Instead of the values of the original matrices, the non zero elements are set to 1
     std::vector<double> values(A.getNNZ(), 1);
     S.setValues(std::cref(values));
 }
 
-void extractSubmatrix(const std::vector<size_t>& submatrixColIndices, std::vector<size_t>& submatrixRowIndices, std::vector<size_t>& submatrixRowPointers, const std::vector<size_t>& submatrixColPointers, const csc_matrix& S, int& maxSk, int& maxRk) {
+// Function to extract the submatrix information from the sparsity pattern and the source matrix
+void extractSubmatrixInfo(const std::vector<size_t>& submatrixColIndices, std::vector<size_t>& submatrixRowIndices, std::vector<size_t>& submatrixRowPointers, const std::vector<size_t>& submatrixColPointers, const csc_matrix& S, int& maxSk, int& maxRk) {
     // Preprocessing the sparsity pattern
     const size_t numCols = S.getNumCols();
     const std::vector<size_t> nnzPerCol = S.getNNZPerCol();
@@ -113,6 +123,7 @@ void extractSubmatrix(const std::vector<size_t>& submatrixColIndices, std::vecto
 }
 
 
+// The SAM algorithm
 csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_matrix& S)
 {
     csc_matrix MM;
@@ -126,7 +137,61 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
     // Keep track of the maximum number of non zeros in the row and columns of the submatrix
     int maxSk = 0;
     int maxRk = 0;
-    extractSubmatrix(submatrixColIndices, submatrixRowIndices, submatrixRowPointers, submatrixColPointers, S, maxSk, maxRk);
+    extractSubmatrixInfo(submatrixColIndices, submatrixRowIndices, submatrixRowPointers, submatrixColPointers, S, maxSk, maxRk);
+
+    // Get the values and row indices from the source matrix
+    std::vector<double> sourceMatrixValues(source.getValues());
+    std::vector<size_t> sourceMatrixRowIndices(source.getRowIndices());
+
+
+    // Extract the submatrix from source matrix using the submatrix information
+    for (size_t i = 0; i < source.getNumCols(); i++) {
+        // Find the column and row indices of the submatrix for the current column
+        auto colStart = submatrixColIndices.begin() + submatrixColPointers[i];
+        size_t colDim = submatrixColPointers[i + 1] - submatrixColPointers[i];
+
+        auto rowStart = submatrixRowIndices.begin() + submatrixRowPointers[i];
+        size_t rowDim = submatrixRowPointers[i + 1] - submatrixRowPointers[i];
+
+        // Initialize the submatrix with fixed size
+        std::vector<std::vector<double>> submatrix(rowDim, std::vector<double>(colDim));
+
+        // Map row indices to their position in submatrix
+        std::unordered_map<size_t, size_t> rowIndexMap;
+        for (size_t row = 0; row < rowDim; ++row, ++rowStart) {
+            rowIndexMap[*rowStart] = row;
+        }
+
+        // Iterate over the column indices to build the submatrix
+        for (auto j = 0; j < colDim; ++j, ++colStart) {
+            // // Get the iterators for the non-zero values of the column
+            const size_t col = *colStart;
+            auto start = sourceMatrixValues.begin() + submatrixColPointers[col];
+            const size_t nnz = submatrixColPointers[col + 1] - submatrixColPointers[col];
+
+            // Get the row indices for the column
+            auto rowIndexStart = sourceMatrixRowIndices.begin() + submatrixColPointers[col];
+
+            // Check the row index for the current column and insert the non zero values in the exact position in the submatrix
+            for (size_t k = 0; k < nnz; ++k, ++rowIndexStart, ++start) {
+                if (rowIndexMap.find(*rowIndexStart) != rowIndexMap.end()) {
+                    submatrix[rowIndexMap[*rowIndexStart]][j] = *start;
+                } else {
+                    continue;
+                }
+            }
+        }
+
+        // Debug Print: Print the submatrix for the current column
+        std::cout << "Submatrix for column " << i << ":\n";
+        for (const auto& row : submatrix) {
+            for (const auto& value : row) {
+                std::cout << value << "\t";
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\n";
+    }
 
     return MM;
 }
