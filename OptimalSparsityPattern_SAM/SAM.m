@@ -73,12 +73,14 @@ M = zeros(max_row,1);
 cntrM = 0;
 for j = 1:n
     G(1:nnz_LS(j),1:nnz_M(j)) = A_source(nz_LS{j},nz_M{j});
+    disp(G); % Prints the submatrix
     %[rC,cC] = size(G(1:nnz_LS(j),1:nnz_M(j)));
     M(1:nnz_M(j)) = G(1:nnz_LS(j),1:nnz_M(j))\A_target(nz_LS{j},j);
     rowM(cntrM+1:cntrM+nnz_M(j)) = nz_M{j};
     colM(cntrM+1:cntrM+nnz_M(j)) = j;
     valM(cntrM+1:cntrM+nnz_M(j)) = M(1:nnz_M(j));
     cntrM = cntrM+nnz_M(j);
+    G = zeros(max_row,max_col); % This is added to reset the submatrix and check correctness
 end
 
 MM = sparse(rowM(1:cntrM),colM(1:cntrM),valM(1:cntrM));
