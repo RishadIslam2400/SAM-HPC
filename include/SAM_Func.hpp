@@ -5,6 +5,8 @@
 #include <iostream>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
+#include <iomanip>
 
 // Representation of the sparse matrices
 // It uses compressed sparse column (CSC) storage format
@@ -92,7 +94,7 @@ void extractSubmatrixInfo(const std::vector<size_t>& submatrixColIndices, std::v
     for (size_t j = 0; j < numCols; j++) {
         // Static allocation is difficult since we do not know the size beforehand
         // Use set to keep track of the unique row indices
-        std::unordered_set<size_t> rowIndicesPerCol;
+        std::set<size_t> rowIndicesPerCol;
         const auto start = submatrixColIndices.begin() + submatrixColPointers[j];
         const auto end = submatrixColIndices.begin() + submatrixColPointers[j + 1];
 
@@ -154,7 +156,11 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         size_t rowDim = submatrixRowPointers[i + 1] - submatrixRowPointers[i];
 
         // Initialize the submatrix with fixed size
-        std::vector<std::vector<double>> submatrix(rowDim, std::vector<double>(colDim));
+        // The submatrices are in row major order
+        // std::vector<std::vector<double>> submatrix(rowDim, std::vector<double>(colDim));
+
+        // This submatrix will be in column major order
+        std::vector<std::vector<double>> submatrix(colDim, std::vector<double>(rowDim));
 
         // Map row indices to their position in submatrix
         std::unordered_map<size_t, size_t> rowIndexMap;
@@ -175,7 +181,11 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
 
             // Check the row index for the current column and insert the non zero values in the exact position in the submatrix
             for (auto k = start; k != end; ++k, ++rowIndexStart) {
-               submatrix[rowIndexMap[*rowIndexStart]][j] = *k;
+                // accessing row major submatrix
+                // submatrix[rowIndexMap[*rowIndexStart]][j] = *k;
+
+                // accessing column major submatrix
+                submatrix[j][rowIndexMap[*rowIndexStart]] = *k;
             }
         }
 
@@ -203,12 +213,16 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         std::vector<double> mapColumn(colDim);
 
         // Solve the submatrix using QR factorization with Householder Transformations
-        // qrHouseholder(submatrix, rhs, mapColumn);
+        // Pass the arguments by value to avoid modifying the original matrices
+        // qrHouseholder(submatrix, rhs, mapColumn, colDim, rowDim);
 
         // Debug Print: Print the submatrix for the current column
-        std::cout << "Target matrix column " << i << ":\n";
-        for (const auto& elem : rhs) {
-            std::cout << elem << "\n";
+        std::cout << "Submatrix for column " << i << ":\n";
+        for (int i = 0; i < rowDim; ++i) {
+            for (int j = 0; j < colDim; ++j) {
+                std::cout << std::setw(10) << std::setprecision(10) << submatrix[j][i] << " ";
+            }
+            std::cout << "\n";
         }
         std::cout << "\n";
     }
