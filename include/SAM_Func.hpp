@@ -9,6 +9,7 @@
 #include <iomanip>
 
 #include "householderQR.hpp"
+#include "mgsQR.hpp"
 
 // Representation of the sparse matrices
 // It uses compressed sparse column (CSC) storage format
@@ -234,6 +235,9 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         // Solve the submatrix using QR factorization with Householder Transformations
         // Pass the arguments by value to avoid modifying the original matrices
         householderQRSolve(submatrix, rhs, mapColumn, rowDim, colDim);
+
+        // QR solver with modified Gram Schmidt -  both are yielding same results
+        // mgsQRSolve(submatrix, rhs, mapColumn, rowDim, colDim);
 
         // Construct the Map Matrix
         MM.setValues(std::move(mapColumn));

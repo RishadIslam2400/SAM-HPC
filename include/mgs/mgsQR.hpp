@@ -123,3 +123,34 @@ void gramSchmidt(std::vector<std::vector<double>>& a, std::vector<std::vector<do
         }
     }
 }
+
+void mgsQRSolve(std::vector<std::vector<double>>& A, std::vector<double>& rhs, std::vector<double>& x, size_t rowDim, size_t colDim) {
+    std::vector<std::vector<double>> R(colDim, std::vector<double>(colDim, 0.0));
+
+    // Perfrom the QR decomposition
+    gramSchmidt(A, R, rowDim, colDim);
+
+    // Compute Q^T * b
+    std::vector<double> QTb(colDim, 0.0);
+    for (size_t i = 0; i < colDim; ++i) {
+        QTb[i] = std::transform_reduce(
+            std::execution::seq,
+            A[i].begin(),
+            A[i].end(),
+            rhs.begin(),
+            0.0,
+            std::plus<double>(),
+            [](double q_ij, double b_j) { return q_ij * b_j; }
+        );
+    }
+
+    // Back substitution to solve R * x = Q^T * b
+    for (int i = static_cast<int>(colDim) - 1; i >= 0; --i) {
+        x[i] = QTb[i];
+        for (size_t j = i + 1; j < colDim; ++j) {
+            x[i] -= R[j][i] * x[j];
+        }
+
+        x[i] /= R[i][i];
+    }
+}

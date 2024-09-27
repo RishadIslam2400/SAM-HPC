@@ -197,8 +197,8 @@ void householderQR(std::vector<std::vector<double>>& a, std::vector<std::vector<
 }
 
 void householderQRSolve(
-    std::vector<std::vector<double>> A,
-    std::vector<double> rhs,
+    std::vector<std::vector<double>>& A,
+    std::vector<double>& rhs,
     std::vector<double>& mapColumn,
     size_t rowDim, size_t colDim) {
     
