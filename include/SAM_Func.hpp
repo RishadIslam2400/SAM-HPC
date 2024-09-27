@@ -8,6 +8,8 @@
 #include <set>
 #include <iomanip>
 
+#include "householderQR.hpp"
+
 // Representation of the sparse matrices
 // It uses compressed sparse column (CSC) storage format
 class csc_matrix
@@ -35,6 +37,16 @@ public:
 
     // Setters
     void setValues(const std::vector<double> &values) { mValues = values; }
+    
+    // Overload the setValues function
+    void setValues(std::vector<double> &&values) {
+        if (mValues.capacity() == 0 || mValues.capacity() < mNNZ) {
+            mValues.reserve(mNNZ);
+        }
+
+       mValues.insert(mValues.end(), std::make_move_iterator(values.begin()), std::make_move_iterator(values.end()));
+    }
+
     void setRowIndices(const std::vector<size_t> &rowIndices) { mRowIndices = rowIndices; }
     void setColPointers(const std::vector<size_t> &colPointers) { mColPointers = colPointers; }
     void setNNZPerCol(const std::vector<size_t> &NNZPerCol) { mNNZPerCol = NNZPerCol; }
@@ -126,6 +138,14 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
 {
     csc_matrix MM;
 
+    // Construct the map Matrix
+    MM.setNumCols(S.getNumCols());
+    MM.setNumRows(S.getNumRows());
+    MM.setColPointers(S.getColPointers());
+    MM.setRowIndices(S.getRowIndices());
+    MM.setNNZ(S.getNNZ());
+    MM.setNNZPerCol(S.getNNZPerCol());
+
     // Construct the submatrix information for each column
     const std::vector<size_t> submatrixColIndices(S.getRowIndices());
     const std::vector<size_t> submatrixColPointers(S.getColPointers());
@@ -160,7 +180,7 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         // std::vector<std::vector<double>> submatrix(rowDim, std::vector<double>(colDim));
 
         // This submatrix will be in column major order
-        std::vector<std::vector<double>> submatrix(colDim, std::vector<double>(rowDim));
+        std::vector<std::vector<double>> submatrix(colDim, std::vector<double>(rowDim, 0.0));
 
         // Map row indices to their position in submatrix
         std::unordered_map<size_t, size_t> rowIndexMap;
@@ -174,7 +194,6 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
             const size_t col = *colStart;
             auto start = sourceMatrixValues.begin() + submatrixColPointers[col];
             auto end = sourceMatrixValues.begin() + submatrixColPointers[col + 1];
-            const size_t nnz = submatrixColPointers[col + 1] - submatrixColPointers[col];
 
             // Get the row indices for the column
             auto rowIndexStart = sourceMatrixRowIndices.begin() + submatrixColPointers[col];
@@ -214,15 +233,15 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
 
         // Solve the submatrix using QR factorization with Householder Transformations
         // Pass the arguments by value to avoid modifying the original matrices
-        // qrHouseholder(submatrix, rhs, mapColumn, colDim, rowDim);
+        householderQRSolve(submatrix, rhs, mapColumn, rowDim, colDim);
 
-        // Debug Print: Print the submatrix for the current column
-        std::cout << "Submatrix for column " << i << ":\n";
-        for (int i = 0; i < rowDim; ++i) {
-            for (int j = 0; j < colDim; ++j) {
-                std::cout << std::setw(10) << std::setprecision(10) << submatrix[j][i] << " ";
-            }
-            std::cout << "\n";
+        // Construct the Map Matrix
+        MM.setValues(std::move(mapColumn));
+
+        // Debug Print: Print the column of the map
+        std::cout << "M[" << i << "] " << ":\n";
+        for (size_t j = 0; j < colDim; ++j) {
+            std::cout << mapColumn[j] << " ";
         }
         std::cout << "\n";
     }

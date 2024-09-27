@@ -101,6 +101,11 @@ int main()
         
         // Compute the map
         Mk = SAM(A0, Ak, Sk);
+
+        // Print the map matrix
+        std::cout << "Mk: " << std::endl;
+        Mk.printMatrix();
+        std::cout << std::endl;
     }
 
     return 0;    

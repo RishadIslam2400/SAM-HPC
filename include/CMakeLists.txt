@@ -7,5 +7,7 @@ link_directories(${MATLAB_ROOT}/bin/glnxa64)
 
 add_library(sam_func INTERFACE SAM_Func.hpp)
 target_include_directories(sam_func INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+target_link_libraries(sam_func INTERFACE householderQR)
 
 add_subdirectory(householder)
+add_subdirectory(mgs)
