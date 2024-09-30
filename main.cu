@@ -8,7 +8,9 @@
 #include <thrust/extrema.h>
 #include <iomanip>
 
-#define N 10
+#define N 100
+
+
 
 void readCSCFromFile(const std::string& filename,
                      std::vector<double>& values,
@@ -62,33 +64,31 @@ void printCSCArrays(const std::vector<double>& values,
     std::cout << std::endl;
 }
 
-// Rk_max_size records the maximum number of non-zero entries in Rk
-// including repeated row entries
-// [1   1]
-// [2    ]
-// [    3]   
-// [4    ] 
-// This sub matrix will have Rk_max_size = 5
-
-__global__ void getSkAndRkMaxSize(int *S_row_indices, int *S_col_ptr, int *A_col_ptr, int *Sk_sizes, int *Rk_sizes, int n) {
+std::vector<double> incrementValues(const std::vector<double>& values) {
+    std::vector<double> incrementedValues(values.size());
+    for (size_t i = 0; i < values.size(); ++i) {
+        incrementedValues[i] = values[i] + 10.0;
+    }
+    return incrementedValues;
+}
+__global__ void getSkAndRkMaxSize(int *S_row_indices, int *S_col_ptr, int *A_col_ptr, int *Sk_max_sizes, int *Rk_max_sizes, int n) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (col < n) {
-        int Sk_size = 0;
-        int Rk_size = 0;
+        int Sk_max_size = 0;
+        int Rk_max_size = 0;
         int start_S = S_col_ptr[col];
         int end_S = S_col_ptr[col + 1];
-        Sk_size = end_S - start_S;  // Number of non-zero entries in column `col` of S
+        Sk_max_size = end_S - start_S;  // Number of non-zero entries in column `col` of S
 
         for (int i = start_S; i < end_S; ++i) {
             int row = S_row_indices[i];
             int start_A = A_col_ptr[row];
             int end_A = A_col_ptr[row + 1];
-            Rk_size += (end_A - start_A);
+            Rk_max_size += (end_A - start_A);
         }
         
-        Sk_sizes[col] = Sk_size;
-        Rk_sizes[col] = Rk_size;
-
+        Sk_max_sizes[col] = Sk_max_size;
+        Rk_max_sizes[col] = Rk_max_size;
     }
 }
 
@@ -139,6 +139,15 @@ __global__ void computeRk(int *A_row_indices, int *A_col_ptr, int *sk, int numCo
 }
 
 
+__device__ double vectorNorm(double* v, int length) {
+    double norm = 0.0;
+    for (int i = 0; i < length; i++) {
+        norm += v[i] * v[i];
+    }
+    return sqrt(norm);
+}
+
+
 __device__ void qrDecomposition(double* submatrix, double* Q, double* R, int actual_rows, int actual_cols, int padded_rows, int padded_cols) {
     for (int i = 0; i < actual_cols; i++) {
         double norm = 0.0;
@@ -167,8 +176,6 @@ __device__ void qrDecomposition(double* submatrix, double* Q, double* R, int act
 }
 
 __device__ void computeQtb(double* Q, double* b, double* Qtb, int Q_num_rows, int Q_num_cols, int max_Sk_size) {
-    
-    int Qtb_num_rows = Q_num_cols;
     for (int i = 0; i < Q_num_cols; i++) {
         double sum = 0.0;
         for (int j = 0; j < Q_num_rows; j++) {
@@ -178,12 +185,33 @@ __device__ void computeQtb(double* Q, double* b, double* Qtb, int Q_num_rows, in
     }
 }
 
+__device__ void computeQtb1(double* Q, double* b, double* Qtb, int Q_num_rows, int Q_num_cols, int max_Sk_size) {
+    for (int i = 0; i < Q_num_cols; i++) {
+        double sum = 0.0;
+        for (int j = 0; j < Q_num_rows; j++) {
+            // printf("Q[%d][%d] = %f, b[%d] = %f\n", j, i, Q[j * max_Sk_size + i], j, b[j]);
+            sum += Q[j * max_Sk_size + i] * b[j];
+        }
+        Qtb[i] = sum;
+    }
+}
+
+
 
 __device__ void backSubstitution(double* R, double* Qtb, double* x_matrix, int n, int col, int max_Sk_size) {
     int x_start = col * max_Sk_size;
     for (int i = 0; i < n; i++) {
         x_matrix[x_start + i] = Qtb[i]/ R[i * max_Sk_size + i];
     }
+
+    // int x_index = col * max_Rk_size; // Calculate the starting index for the solution in x_matrix
+    // for (int i = n - 1; i >= 0; i--) {
+    //     double sum = 0.0;
+    //     for (int j = i + 1; j < n; j++) {
+    //         sum += R[i * n + j] * x_matrix[x_index + j]; // Use the correctly offset x values
+    //     }
+    //     x_matrix[x_index + i] = (Qtb[i] - sum) / R[i * n + i];  // Compute and store directly in x_matrix
+    // }
 }
 
 
@@ -276,10 +304,13 @@ __global__ void kernel1(double *A_values, double *b_values,
                         rk_count, end_S - start_S, max_Rk_size, max_Sk_size);
 
 
-
-        computeQtb(&Q[col * max_Rk_size * max_Sk_size], &b_matrix[col * max_Rk_size],
-            &Qtb[col * max_Sk_size], Rk_actual_sizes[col], Sk_actual_sizes[col], max_Sk_size);
-    
+        if (col==0){
+            computeQtb1(&Q[col * max_Rk_size * max_Sk_size], &b_matrix[col * max_Rk_size],
+                   &Qtb[col * max_Sk_size], Rk_actual_sizes[col], Sk_actual_sizes[col], max_Sk_size);
+        }else{
+            computeQtb(&Q[col * max_Rk_size * max_Sk_size], &b_matrix[col * max_Rk_size],
+                   &Qtb[col * max_Sk_size], Rk_actual_sizes[col], Sk_actual_sizes[col], max_Sk_size);
+        }
 
 
         backSubstitution(&R[col * max_Sk_size * max_Sk_size], &Qtb[col * max_Sk_size], x_matrix, Sk_actual_sizes[col], col, max_Sk_size);
@@ -316,10 +347,6 @@ __global__ void kernel1(double *A_values, double *b_values,
             for (int i = 0; i < Sk_actual_sizes[col]; i++) {
                 printf("%f\n", Qtb[col * max_Sk_size + i]);
             }
-            for (int i = start_S; i < end_S; ++i) {
-                printf("Sk_idx[%d] = %d\n", i, rk_idx[col * max_Sk_size + i]);
-            }
-            
         }
     }
 }
@@ -336,9 +363,9 @@ int main() {
     std::vector<int> colPointers_A, colPointers_S, colPointers_b;
 
     // Generate filename based on the matrix size
-    std::string filename1 = "matrix_" + std::to_string(N) + ".csc";
-    std::string filename2 = "matrixA_" + std::to_string(N) + ".csc"; 
-    std::string filename3 = "matrixb_" + std::to_string(N) + ".csc"; 
+    std::string filename1 = "matrix_1.csc";
+    std::string filename2 = "matrix_2.csc"; 
+    std::string filename3 = "matrix_1.csc"; 
     // Read the matrix from a file for both A and S
     readCSCFromFile(filename2, values_A, rowIndices_A, colPointers_A);
     readCSCFromFile(filename1, values_S, rowIndices_S, colPointers_S);
@@ -389,19 +416,24 @@ int main() {
     int Sk_max_size = *(thrust::max_element(d_Sk_max_sizes_ptr, d_Sk_max_sizes_ptr + N));
     int Rk_max_size = *(thrust::max_element(d_Rk_max_sizes_ptr, d_Rk_max_sizes_ptr + N));
 
-
     // Allocate memory for sk, rk_idx, submatrix, Q, and R
-    int *d_sk, *d_rk_idx;
-    double *d_submatrix, *d_b_matrix, *d_Q, *d_R, *d_x_solutions, *d_Qtb;
+    int *d_sk;
+    double *d_submatrix, *d_b_matrix, *d_Q, *d_R;
     cudaMalloc(&d_sk, N * Sk_max_size * sizeof(int)); 
     cudaMalloc(&d_submatrix, N * Rk_max_size * Sk_max_size * sizeof(double));
     cudaMalloc(&d_b_matrix, N * Rk_max_size  * sizeof(double));
     cudaMalloc(&d_Q, N * Rk_max_size * Sk_max_size * sizeof(double));
     cudaMalloc(&d_R, N * Sk_max_size * Sk_max_size * sizeof(double));
-    cudaMalloc(&d_rk_idx, N * Rk_max_size * sizeof(int));
-    cudaMalloc(&d_x_solutions, N * Sk_max_size  * sizeof(double));
-    cudaMalloc(&d_Qtb, N * Sk_max_size * sizeof(double));
 
+    // Allocate space for rk_idx, Sk_actual_sizes, Rk_actual_sizes
+    int *d_rk_idx;
+    cudaMalloc(&d_rk_idx, N * Rk_max_size * sizeof(int));
+
+    double *d_x_solutions;
+    cudaMalloc(&d_x_solutions, N * Sk_max_size  * sizeof(double));
+
+    double *d_Qtb;
+    cudaMalloc(&d_Qtb, N * Sk_max_size * sizeof(double));
 
     computeSk<<<numBlocks, blockSize>>>(d_rowIndices_S, d_colPointers_S, N, d_sk, d_Sk_actual_sizes, Sk_max_size);
 
@@ -429,45 +461,45 @@ int main() {
     cudaMemcpy(h_Qtb.data(), d_Qtb, N * Sk_max_size * sizeof(double), cudaMemcpyDeviceToHost);
 
 
-    // for (int i = 0; i < N; ++i) {
-    //     std::cout << "Q matrix for column " << i << ":\n";
-    //     for (int row = 0; row < Rk_max_size; ++row) {
-    //         for (int col = 0; col < Sk_max_size; ++col) {
-    //             std::cout << std::setw(5) << h_Q[i * Rk_max_size * Sk_max_size + row * Sk_max_size + col] << " ";
-    //         }
-    //         std::cout << std::endl;
-    //     }
+    for (int i = 0; i < N; ++i) {
+        std::cout << "Q matrix for column " << i << ":\n";
+        for (int row = 0; row < Rk_max_size; ++row) {
+            for (int col = 0; col < Sk_max_size; ++col) {
+                std::cout << std::setw(5) << h_Q[i * Rk_max_size * Sk_max_size + row * Sk_max_size + col] << " ";
+            }
+            std::cout << std::endl;
+        }
 
-    //     std::cout << "R matrix for column " << i << ":\n";
-    //     for (int row = 0; row < Sk_max_size; ++row) {
-    //         for (int col = 0; col < Sk_max_size; ++col) {
-    //             std::cout << std::setw(5) << h_R[i * Sk_max_size * Sk_max_size + row * Sk_max_size + col] << " ";
-    //         }
-    //         std::cout << std::endl;
-    //     }
-    // }
+        std::cout << "R matrix for column " << i << ":\n";
+        for (int row = 0; row < Sk_max_size; ++row) {
+            for (int col = 0; col < Sk_max_size; ++col) {
+                std::cout << std::setw(5) << h_R[i * Sk_max_size * Sk_max_size + row * Sk_max_size + col] << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
 
-    // // Print the submatrix results
-    // std::cout << "Submatrix:" << std::endl;
-    // for (int i = 0; i < N; ++i) {
-    //     std::cout << "Submatrix for column " << i << ": " << std::endl;
-    //     for (int j = 0; j < Rk_max_size; ++j) {
-    //         for (int k = 0; k < Sk_max_size; ++k) {
-    //             double value = h_submatrix[i * Rk_max_size * Sk_max_size + j * Sk_max_size + k];
-    //             std::cout << std::setw(5) << value << " ";
-    //         }
-    //         std::cout << std::endl;
-    //     }
-    // }
+    // Print the submatrix results
+    std::cout << "Submatrix:" << std::endl;
+    for (int i = 0; i < N; ++i) {
+        std::cout << "Submatrix for column " << i << ": " << std::endl;
+        for (int j = 0; j < Rk_max_size; ++j) {
+            for (int k = 0; k < Sk_max_size; ++k) {
+                double value = h_submatrix[i * Rk_max_size * Sk_max_size + j * Sk_max_size + k];
+                std::cout << std::setw(5) << value << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
 
-    // for (int i = 0; i < N; ++i) {
-    //     std::cout << "Qtb " << i << ": " << std::endl;
-    //     for (int j = 0; j < Sk_max_size; ++j) {
-    //         double value = h_Qtb[i * Sk_max_size + j];
-    //         std::cout << std::setw(5) << value << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
+    for (int i = 0; i < N; ++i) {
+        std::cout << "Qtb " << i << ": " << std::endl;
+        for (int j = 0; j < Sk_max_size; ++j) {
+            double value = h_Qtb[i * Sk_max_size + j];
+            std::cout << std::setw(5) << value << " ";
+        }
+        std::cout << std::endl;
+    }
 
 
 
@@ -480,7 +512,8 @@ int main() {
         std::cout << std::endl;
     }
 
-
+    std::cout << "Max Rk size: " << Rk_max_size << std::endl;
+    std::cout << "Max Sk size: " << Sk_max_size << std::endl;
 
     // Free device memory
     cudaFree(d_rowIndices_A);

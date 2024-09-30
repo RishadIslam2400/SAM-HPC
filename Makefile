@@ -2,13 +2,13 @@
 NVCC = nvcc
 
 # Compiler flags
-CFLAGS = -O2 -std=c++11
+CFLAGS = -O3 -std=c++11
 
 # Executable name
-TARGET = main3
+TARGET = main
 
 # Source files
-SRCS = main3.cu
+SRCS = main.cu
 
 # Object files
 OBJS = $(SRCS:.cu=.o)
