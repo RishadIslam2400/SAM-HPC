@@ -71,22 +71,25 @@ std::vector<double> incrementValues(const std::vector<double>& values) {
     }
     return incrementedValues;
 }
+//[ys] this code may be efficeint to run on cpu if the matrix size is not big, 2 loops may be better in such case, due to the cache
 __global__ void getSkAndRkMaxSize(int *S_row_indices, int *S_col_ptr, int *A_col_ptr, int *Sk_max_sizes, int *Rk_max_sizes, int n) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (col < n) {
         int Sk_max_size = 0;
         int Rk_max_size = 0;
+        // [ys] S_col_ptr could be co-load into shared memory, as long as its not over 48KB, otherwise, tilling may be a solution
         int start_S = S_col_ptr[col];
         int end_S = S_col_ptr[col + 1];
         Sk_max_size = end_S - start_S;  // Number of non-zero entries in column `col` of S
 
         for (int i = start_S; i < end_S; ++i) {
-            int row = S_row_indices[i];
+            // [ys] the following access pattern may cause non-coalescent memory accesses
+            int row = S_row_indices[i]; 
             int start_A = A_col_ptr[row];
             int end_A = A_col_ptr[row + 1];
             Rk_max_size += (end_A - start_A);
         }
-        
+        // [ys] use shared memory and reduce on the fly to calculate max can avoid unncessary kerenal launch and mem copy, check snip1 for detail
         Sk_max_sizes[col] = Sk_max_size;
         Rk_max_sizes[col] = Rk_max_size;
     }
