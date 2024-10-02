@@ -72,6 +72,7 @@ std::vector<double> incrementValues(const std::vector<double>& values) {
     return incrementedValues;
 }
 //[ys] this code may be efficeint to run on cpu if the matrix size is not big, 2 loops may be better in such case, due to the cache
+//[ys] for larger matrix, I think tilling is inevitable, but this current version doesn't take care of the situation
 __global__ void getSkAndRkMaxSize(int *S_row_indices, int *S_col_ptr, int *A_col_ptr, int *Sk_max_sizes, int *Rk_max_sizes, int n) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (col < n) {
@@ -110,35 +111,6 @@ __global__ void computeSk(int *S_row_indices, int *S_col_ptr, int numCols, int *
         count++;
     }
     Sk_actual_sizes[k] = count;
-}
-
-
-__global__ void computeRk(int *A_row_indices, int *A_col_ptr, int *sk, int numCols, int *rk, int max_size) {
-    int k = blockIdx.x * blockDim.x + threadIdx.x;
-    if (k >= numCols) return;
-
-    int lookup[N]={0};  
-    for (int i = 0; i < max_size; i++) {
-        rk[k * max_size + i] = -1;
-    }
-
-    int rkCount = 0;  
-    for (int i = 0; i < max_size; i++) {
-        int colIdx = sk[k * max_size + i];
-        if (colIdx == -1) continue;  
-
-        int startIdx = A_col_ptr[colIdx];
-        int endIdx = A_col_ptr[colIdx + 1];
-        for (int j = startIdx; j < endIdx; j++) {
-            int rowIdx = A_row_indices[j];
-            if (lookup[rowIdx] == 0 && rkCount < max_size) {  
-                rk[k * max_size + rkCount] = rowIdx;
-                rkCount++;
-                lookup[rowIdx] = 1;  
-            }
-        }
-    }
-
 }
 
 
@@ -221,6 +193,8 @@ __device__ void backSubstitution(double* R, double* Qtb, double* x_matrix, int n
 
 
 // Kernel that performs submatrix extraction followed by QR decomposition
+// [ys] we can use bool array to optimize the for loop
+// [ys] the solver can be optimmized
 __global__ void kernel1(double *A_values, double *b_values,
                                  int *A_row_indices, int *A_col_ptr, 
                                  int *S_row_indices, int *S_col_ptr, 
@@ -232,43 +206,43 @@ __global__ void kernel1(double *A_values, double *b_values,
                                  int max_Sk_size, int max_Rk_size, int n) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (col < n) {
-        int start_S = S_col_ptr[col];
-        int end_S = S_col_ptr[col + 1];
+        int start_S = S_col_ptr[col]; // index into row indecies
+        int end_S = S_col_ptr[col + 1]; 
 
-        // Initialize rk_idx and submatrix with -1
-        for (int i = 0; i < max_Rk_size; ++i) {
-            rk_idx[col * max_Rk_size + i] = -1;
-        }
-        for (int i = 0; i < max_Rk_size * max_Sk_size; ++i) {
-            submatrix[col * max_Rk_size * max_Sk_size + i] = 0.0;  // Initialize submatrix with zeros
-        }
-        for (int i = 0; i < max_Rk_size; ++i) {
-            b_matrix[col * max_Rk_size + i] = 0.0;
-        }
+        // // Initialize rk_idx and submatrix with -1
+        // for (int i = 0; i < max_Rk_size; ++i) {
+        //     rk_idx[col * max_Rk_size + i] = -1;
+        // }
+        // for (int i = 0; i < max_Rk_size * max_Sk_size; ++i) {
+        //     submatrix[col * max_Rk_size * max_Sk_size + i] = 0.0;  // Initialize submatrix with zeros
+        // }
+        // for (int i = 0; i < max_Rk_size; ++i) {
+        //     b_matrix[col * max_Rk_size + i] = 0.0;
+        // }
 
         int rk_count = 0;
         for (int i = start_S; i < end_S; ++i) {
-            int row = S_row_indices[i];
+            int row = S_row_indices[i]; // non-zero row index of S, serve as col_ptr index in A
             int start_A = A_col_ptr[row];
             int end_A = A_col_ptr[row + 1];
             for (int j = start_A; j < end_A; ++j) {
-                int idx = A_row_indices[j];
+                int idx = A_row_indices[j]; // idx is row index of A
                 bool found = false;
                 for (int k = 0; k < rk_count; ++k) {
-                    if (rk_idx[col * max_Rk_size + k] == idx) {
+                    if (rk_idx[col * max_Rk_size + k] == idx) { // if this row idx already mapped to row k of rk, skip
                         found = true;
                         break;
                     }
                 }
                 if (!found) {
-                    rk_idx[col * max_Rk_size + rk_count] = idx;
+                    rk_idx[col * max_Rk_size + rk_count] = idx; // map idx to row rk_count of rk
                     // Add entry to the submatrix
-                    for (int l = start_S; l < end_S; ++l) {
+                    for (int l = start_S; l < end_S; ++l) { 
                         int sub_row = S_row_indices[l];
                         int sub_start_A = A_col_ptr[sub_row];
                         int sub_end_A = A_col_ptr[sub_row + 1];
                         bool value_found = false;
-                        for (int m = sub_start_A; m < sub_end_A; ++m) {
+                        for (int m = sub_start_A; m < sub_end_A; ++m) { 
                             if (A_row_indices[m] == idx) {
                                 int submatrix_idx = col * max_Rk_size * max_Sk_size + rk_count * max_Sk_size + (l - start_S);
                                 submatrix[submatrix_idx] = A_values[m];
