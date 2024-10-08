@@ -14,3 +14,4 @@ cd2d_approx_maps_*
 bubble_sparsity_pattern/
 bubble_exact_map_*
 bubble_approx_map_*
+data*
