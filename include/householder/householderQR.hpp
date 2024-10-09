@@ -206,7 +206,7 @@ void householderQRSolve(
     std::vector<std::vector<double>> v(colDim);
 
     // Check dimensions
-    std::cout << "A: " << A.size() << ", colDim: " << colDim << std::endl;
+    // std::cout << "A: " << A.size() << ", colDim: " << colDim << std::endl;
     assert(A.size() == colDim && "Invalid column dimension");
     assert(A[0].size() == rowDim && "Invalid row dimension");
     assert(A.size() == mapColumn.size() && "The matrix column dimension and solution vector dimension do not match");

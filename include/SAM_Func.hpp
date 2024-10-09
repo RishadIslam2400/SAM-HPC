@@ -243,11 +243,11 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         MM.setValues(std::move(mapColumn));
 
         // Debug Print: Print the column of the map
-        std::cout << "M[" << i << "] " << ":\n";
+        /* std::cout << "M[" << i << "] " << ":\n";
         for (size_t j = 0; j < colDim; ++j) {
             std::cout << mapColumn[j] << " ";
         }
-        std::cout << "\n";
+        std::cout << "\n"; */
     }
 
     return MM;
