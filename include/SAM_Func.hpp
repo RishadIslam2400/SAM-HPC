@@ -20,37 +20,31 @@ public:
     
     // Constructor
     csc_matrix(const std::vector<double> &values, const std::vector<size_t> &rowIndices, const std::vector<size_t> &colPointers, std::vector<size_t> &NNZPerCol, size_t numCols, size_t numRows, size_t nnz)
-        : mValues(values), mRowIndices(rowIndices), mColPointers(colPointers), mNNZPerCol(NNZPerCol), mNumCols(numCols), mNumRows(numRows), mNNZ(nnz) {}
+        : mValues(values), mRowIndices(rowIndices), mColPointers(colPointers), mNumCols(numCols), mNumRows(numRows), mNNZ(nnz) {}
 
     // Copy constructor
     csc_matrix(const csc_matrix &other)
         : mValues(other.mValues), mRowIndices(other.mRowIndices), mColPointers(other.mColPointers),
-          mNNZPerCol(other.mNNZPerCol), mNumCols(other.mNumCols), mNumRows(other.mNumRows), mNNZ(other.mNNZ) {}
+          mNumCols(other.mNumCols), mNumRows(other.mNumRows), mNNZ(other.mNNZ) {}
 
     // Getters - the vectors are const references 
     const std::vector<double> &getValues() const { return mValues; }
     const std::vector<size_t> &getRowIndices() const { return mRowIndices; }
     const std::vector<size_t> &getColPointers() const { return mColPointers; }
-    const std::vector<size_t> &getNNZPerCol() const { return mNNZPerCol; }
     size_t getNumCols() const { return mNumCols; }
     size_t getNumRows() const { return mNumRows; }
     size_t getNNZ() const { return mNNZ; }
 
     // Setters
     void setValues(const std::vector<double> &values) { mValues = values; }
-    
-    // Overload the setValues function
-    void setValues(std::vector<double> &&values) {
-        if (mValues.capacity() == 0 || mValues.capacity() < mNNZ) {
-            mValues.reserve(mNNZ);
-        }
-
-       mValues.insert(mValues.end(), std::make_move_iterator(values.begin()), std::make_move_iterator(values.end()));
-    }
+    void setValues(const std::vector<double> &&values) { mValues = std::move(values); } // Move overload
 
     void setRowIndices(const std::vector<size_t> &rowIndices) { mRowIndices = rowIndices; }
+    void setRowIndices(const std::vector<size_t> &&rowIndices) { mRowIndices = std::move(rowIndices); } // Move overload
+
     void setColPointers(const std::vector<size_t> &colPointers) { mColPointers = colPointers; }
-    void setNNZPerCol(const std::vector<size_t> &NNZPerCol) { mNNZPerCol = NNZPerCol; }
+    void setColPointers(const std::vector<size_t> &&colPointers) { mColPointers = std::move(colPointers); } // Move overload
+
     void setNumCols(size_t numCols) { mNumCols = numCols; }
     void setNumRows(size_t numRows) { mNumRows = numRows; }
     void setNNZ(size_t nnz) { mNNZ = nnz; }
@@ -70,7 +64,6 @@ private:
     std::vector<double> mValues;      // Non-zero elements
     std::vector<size_t> mRowIndices;  // Row indices
     std::vector<size_t> mColPointers; // Pointer to the start of each column in the row indices array
-    std::vector<size_t> mNNZPerCol;   // Number of non zero elements in each column
     size_t mNumCols;                  // total number of columns
     size_t mNumRows;                  // total number of rows
     size_t mNNZ;                      // total number of non-zero elements
@@ -78,14 +71,12 @@ private:
 
 // Function to generate a simple sparsity pattern
 // The sparsity pattern is same as the input matrix
-void simple_sparsity_pattern(const csc_matrix& A, csc_matrix& S)
-{
+void simple_sparsity_pattern(const csc_matrix& A, csc_matrix& S) {
     S.setRowIndices(A.getRowIndices());
     S.setColPointers(A.getColPointers());
     S.setNumCols(A.getNumCols());
     S.setNumRows(A.getNumRows());
     S.setNNZ(A.getNNZ());
-    S.setNNZPerCol(A.getNNZPerCol());
 
     // Instead of the values of the original matrices, the non zero elements are set to 1
     std::vector<double> values(A.getNNZ(), 1);
@@ -96,7 +87,13 @@ void simple_sparsity_pattern(const csc_matrix& A, csc_matrix& S)
 void extractSubmatrixInfo(const std::vector<size_t>& submatrixColIndices, std::vector<size_t>& submatrixRowIndices, std::vector<size_t>& submatrixRowPointers, const std::vector<size_t>& submatrixColPointers, const csc_matrix& S, int& maxSk, int& maxRk) {
     // Preprocessing the sparsity pattern
     const size_t numCols = S.getNumCols();
-    const std::vector<size_t>& nnzPerCol = S.getNNZPerCol();
+    const std::vector<size_t> colPointers = S.getColPointers();
+
+    // Calculate the number of non-zero elements per column 
+    std::vector<size_t> nnzPerCol(numCols);
+    for (size_t col = 0; col < numCols; ++col) {
+        nnzPerCol[col] = colPointers[col + 1] - colPointers[col];
+    }
 
     // Reserve memory
     submatrixRowPointers.reserve(numCols + 1);
@@ -145,7 +142,6 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
     MM.setColPointers(S.getColPointers());
     MM.setRowIndices(S.getRowIndices());
     MM.setNNZ(S.getNNZ());
-    MM.setNNZPerCol(S.getNNZPerCol());
 
     // Construct the submatrix information for each column
     const std::vector<size_t> submatrixColIndices(S.getRowIndices());
@@ -155,7 +151,6 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
 
     // Get other information from the sparsity pattern
     const size_t numCols = S.getNumCols();
-    const std::vector<size_t> nnzPerCol = S.getNNZPerCol();
 
     // Keep track of the maximum number of non zeros in the row and columns of the submatrix
     int maxSk = 0;
