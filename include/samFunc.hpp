@@ -38,6 +38,11 @@ public:
     size_t getNumRows() const { return mNumRows; }
     size_t getNNZ() const { return mNNZ; }
 
+    // Getters - returns the copy of the vectors
+    std::vector<double> getValuesCopy() const { return mValues; }
+    std::vector<size_t> getRowIndicesCopy() const { return mRowIndices; }
+    std::vector<size_t> getColPointersCopy() const { return mColPointers; }
+
     // Setters
     void setValues(const std::vector<double> &values) { mValues = values; }
     void setValues(const std::vector<double> &&values) { mValues = std::move(values); } // Move overload
