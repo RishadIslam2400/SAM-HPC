@@ -7,6 +7,10 @@
 #include <numeric>
 #include <execution>
 
+/*TODO: Use loop unrolling instead of using stl algorithms since the size of the submatrices are assumed to be small
+Since the size of the matrix is not known at compile time, compiler will not unroll the loop
+Use either pragma unroll or manual loop unrolling */
+
 /* ------------------ partialdot_product ------------------ */
 /*  Given two vectors of the same length and an index this function returns
     the value of the dot product of the two vectors

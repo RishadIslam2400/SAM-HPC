@@ -15,3 +15,7 @@ set_target_properties(householderQR_test PROPERTIES COMPILE_FLAGS "-Wall -Wextra
 add_executable(mgsQR_test mgsQR_test.cpp)
 target_link_libraries(mgsQR_test PUBLIC mgsQR -fsanitize=address)
 set_target_properties(mgsQR_test PROPERTIES COMPILE_FLAGS "-Wall -Wextra ")
+
+add_executable(testSparstiyPattern testSparsityPattern.cpp)
+target_link_libraries(testSparstiyPattern PUBLIC mat mx sam_func)
+set_target_properties(testSparstiyPattern PROPERTIES COMPILE_FLAGS "-Wall -Wextra ")

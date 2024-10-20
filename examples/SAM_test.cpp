@@ -6,7 +6,8 @@
 #include <functional>
 #include <chrono>
 
-#include "SAM_Func.hpp"
+#include "samFunc.hpp"
+#include "sparsityPattern.hpp"
 
 // Function to read .mat file directly using MATLAB API
 bool read_mat(const char *filename, csc_matrix& sparse_matrix)

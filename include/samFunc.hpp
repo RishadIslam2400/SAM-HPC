@@ -13,13 +13,16 @@
 
 // Representation of the sparse matrices
 // It uses compressed sparse column (CSC) storage format
+
+// TODO: Make templated version of the class
+// TODO: Refine and optimizecsc_matrix using amgcl
 class csc_matrix
 {
 public:
     csc_matrix() = default;
     
     // Constructor
-    csc_matrix(const std::vector<double> &values, const std::vector<size_t> &rowIndices, const std::vector<size_t> &colPointers, std::vector<size_t> &NNZPerCol, size_t numCols, size_t numRows, size_t nnz)
+    csc_matrix(const std::vector<double> &values, const std::vector<size_t> &rowIndices, const std::vector<size_t> &colPointers, size_t numCols, size_t numRows, size_t nnz)
         : mValues(values), mRowIndices(rowIndices), mColPointers(colPointers), mNumCols(numCols), mNumRows(numRows), mNNZ(nnz) {}
 
     // Copy constructor
@@ -28,9 +31,9 @@ public:
           mNumCols(other.mNumCols), mNumRows(other.mNumRows), mNNZ(other.mNNZ) {}
 
     // Getters - the vectors are const references 
-    const std::vector<double> &getValues() const { return mValues; }
-    const std::vector<size_t> &getRowIndices() const { return mRowIndices; }
-    const std::vector<size_t> &getColPointers() const { return mColPointers; }
+    const std::vector<double> &getValuesRef() const { return mValues; }
+    const std::vector<size_t> &getRowIndicesRef() const { return mRowIndices; }
+    const std::vector<size_t> &getColPointersRef() const { return mColPointers; }
     size_t getNumCols() const { return mNumCols; }
     size_t getNumRows() const { return mNumRows; }
     size_t getNNZ() const { return mNNZ; }
@@ -69,25 +72,11 @@ private:
     size_t mNNZ;                      // total number of non-zero elements
 };
 
-// Function to generate a simple sparsity pattern
-// The sparsity pattern is same as the input matrix
-void simple_sparsity_pattern(const csc_matrix& A, csc_matrix& S) {
-    S.setRowIndices(A.getRowIndices());
-    S.setColPointers(A.getColPointers());
-    S.setNumCols(A.getNumCols());
-    S.setNumRows(A.getNumRows());
-    S.setNNZ(A.getNNZ());
-
-    // Instead of the values of the original matrices, the non zero elements are set to 1
-    std::vector<double> values(A.getNNZ(), 1);
-    S.setValues(std::move(values));
-}
-
 // Function to extract the submatrix information from the sparsity pattern and the source matrix
 void extractSubmatrixInfo(const std::vector<size_t>& submatrixColIndices, std::vector<size_t>& submatrixRowIndices, std::vector<size_t>& submatrixRowPointers, const std::vector<size_t>& submatrixColPointers, const csc_matrix& S, int& maxSk, int& maxRk) {
     // Preprocessing the sparsity pattern
     const size_t numCols = S.getNumCols();
-    const std::vector<size_t> colPointers = S.getColPointers();
+    const std::vector<size_t> colPointers = S.getColPointersRef();
 
     // Calculate the number of non-zero elements per column 
     std::vector<size_t> nnzPerCol(numCols);
@@ -139,18 +128,15 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
     // Construct the map Matrix
     MM.setNumCols(S.getNumCols());
     MM.setNumRows(S.getNumRows());
-    MM.setColPointers(S.getColPointers());
-    MM.setRowIndices(S.getRowIndices());
+    MM.setColPointers(S.getColPointersRef());
+    MM.setRowIndices(S.getRowIndicesRef());
     MM.setNNZ(S.getNNZ());
 
     // Construct the submatrix information for each column
-    const std::vector<size_t> submatrixColIndices(S.getRowIndices());
-    const std::vector<size_t> submatrixColPointers(S.getColPointers());
+    const std::vector<size_t> submatrixColIndices(S.getRowIndicesRef());
+    const std::vector<size_t> submatrixColPointers(S.getColPointersRef());
     std::vector<size_t> submatrixRowIndices;
     std::vector<size_t> submatrixRowPointers{0};
-
-    // Get other information from the sparsity pattern
-    const size_t numCols = S.getNumCols();
 
     // Keep track of the maximum number of non zeros in the row and columns of the submatrix
     int maxSk = 0;
@@ -158,8 +144,8 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
     extractSubmatrixInfo(submatrixColIndices, submatrixRowIndices, submatrixRowPointers, submatrixColPointers, S, maxSk, maxRk);
 
     // Get the values and row indices from the source matrix
-    const std::vector<double>& sourceMatrixValues(source.getValues());
-    const std::vector<size_t>& sourceMatrixRowIndices(source.getRowIndices());
+    const std::vector<double>& sourceMatrixValues(source.getValuesRef());
+    const std::vector<size_t>& sourceMatrixRowIndices(source.getRowIndicesRef());
 
 
     // Extract the submatrix from source matrix using the submatrix information
@@ -207,9 +193,9 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         // Solve the submatrix using QR factorization with Householder Transformations
 
         // Extract the required required information from the target matrix for solving the LS problem
-        const std::vector<double>& targetMatrixValues(target.getValues());
-        const std::vector<size_t>& targetMatrixRowIndices(target.getRowIndices());
-        const std::vector<size_t>& targetMatrixColPointers(target.getColPointers());
+        const std::vector<double>& targetMatrixValues(target.getValuesRef());
+        const std::vector<size_t>& targetMatrixRowIndices(target.getRowIndicesRef());
+        const std::vector<size_t>& targetMatrixColPointers(target.getColPointersRef());
 
         // Extract current column from the target matrix
         auto targetColStart = targetMatrixValues.begin() + targetMatrixColPointers[i];
