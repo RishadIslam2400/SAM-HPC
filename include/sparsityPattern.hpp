@@ -99,7 +99,6 @@ void sparsity_pattern_global_thresh(const csc_matrix &A,const double thresh, csc
                 ++nnzCount;
             }
         }
-
         sparsityColPointers.push_back(nnzCount);
     }
 
@@ -118,4 +117,79 @@ void sparsity_pattern_global_thresh(const csc_matrix &A,const double thresh, csc
     S.setValues(std::move(sparsityValues));
 
     // TODO: Matrix matrix multiplication of S for level 2 neighbors
+}
+
+// Naive implementation
+void sparsity_pattern_col_thresh(const csc_matrix &A, const double tau, csc_matrix &S) {
+    std::vector<double> inputVals{A.getValuesCopy()};
+    std::vector<size_t> inputRowIndices{A.getRowIndicesCopy()};
+    std::vector<size_t> inputColPointers{A.getColPointersCopy()};
+    const size_t numCols = A.getNumCols();
+    const size_t numRows = A.getNumRows();
+    const size_t nnz = A.getNNZ();
+
+    // Information to construct the sparsity pattern
+    std::vector<double> sparsityValues;
+    std::vector<size_t> sparsityRowIndices;
+    std::vector<size_t> sparsityColPointers;
+    sparsityValues.reserve(nnz);
+    sparsityRowIndices.reserve(nnz);
+    sparsityColPointers.reserve(numCols + 1);
+    sparsityColPointers.push_back(0);
+
+    // Sparsify each column for the sparsity pattern S
+    for (size_t j = 0; j < numCols; ++j) {
+        const size_t colStart = inputColPointers[j];
+        const size_t colEnd = inputColPointers[j + 1];
+        unsigned int nnzCount{0};
+
+        // Find the maximum absolute value in the current column
+        double maxVal{0.0};
+        for (size_t i = colStart; i < colEnd; ++i) {
+            if (std::abs(inputVals[i]) > maxVal) {
+                maxVal = std::abs(inputVals[i]);
+            }
+        }
+
+        // Find the threshold for the current column
+        const double colThresh{(1.0 - tau) * maxVal};
+
+        // Sparsify the column and construct the sparsity pattern
+        for (size_t i = colStart; i < colEnd; ++i) {
+            // Keep the values greater than the threshold or the diagonal entry
+            if (std::abs(inputVals[i]) > colThresh || inputRowIndices[i] == j) {
+                sparsityValues.push_back(1.0);
+                sparsityRowIndices.push_back(inputRowIndices[i]);
+                ++nnzCount;
+            }
+        }
+        sparsityColPointers.push_back(nnzCount);
+    }
+
+    const size_t sparsityNNZ = sparsityRowIndices.size();
+    const size_t sparsityNumCols = numCols;
+    const size_t sparsityNumRows = numRows;
+
+    // Debug Print
+    /* std::cout << "sparsityNNZ: " << sparsityNNZ << std::endl;
+    std::cout << "rowIndices: " << std::endl;
+    for (size_t i = 0; i < sparsityNNZ; ++i) {
+        std::cout << sparsityRowIndices[i] << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "colPointers: " << std::endl;
+    for (size_t i = 0; i < sparsityNumCols + 1; ++i) {
+        std::cout << sparsityColPointers[i] << " ";
+    }
+    std::cout << std::endl; */
+
+    // TODO: sparse matrix matrix multiplication of S for level 2 neighbors
+
+    // Construct the sparsity pattern matrix
+    S.setNNZ(sparsityNNZ);
+    S.setNumCols(sparsityNumCols);
+    S.setNumRows(sparsityNumRows);
+    S.setRowIndices(std::move(sparsityRowIndices));
+    S.setColPointers(std::move(sparsityColPointers));
+    S.setValues(std::move(sparsityValues));
 }

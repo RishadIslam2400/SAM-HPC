@@ -96,5 +96,6 @@ int main() {
         return -1;
     }
 
-    sparsity_pattern_global_thresh(A, 0.5, S);
+    // sparsity_pattern_global_thresh(A, 0.5, S);
+    sparsity_pattern_col_thresh(A, 0.9, S);
 }

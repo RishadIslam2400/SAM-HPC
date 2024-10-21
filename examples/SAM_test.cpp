@@ -118,8 +118,9 @@ int main()
         csc_matrix Mk;                         // Actual values of the map
         
         // Compute the sparsity pattern for SAM for the current source matrix
-        simple_sparsity_pattern(A0, Sk);
+        // simple_sparsity_pattern(A0, Sk);
         // sparsity_pattern_global_thresh(A0, 0.001, Sk);
+        sparsity_pattern_col_thresh(A0, 0.9, Sk);
 
         // Compute the map
         Mk = SAM(A0, Ak, Sk);
