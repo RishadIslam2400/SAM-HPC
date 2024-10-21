@@ -119,7 +119,8 @@ int main()
         
         // Compute the sparsity pattern for SAM for the current source matrix
         simple_sparsity_pattern(A0, Sk);
-        
+        // sparsity_pattern_global_thresh(A0, 0.001, Sk);
+
         // Compute the map
         Mk = SAM(A0, Ak, Sk);
 

@@ -21,7 +21,7 @@ void simple_sparsity_pattern(const csc_matrix &A, csc_matrix &S)
 // Matrix entries less than the global threshold are set to 0
 // For better approximation, level 2 neighbars of the sparse matrix is taken (power of 2)
 // Post sparsification, for further optimization
-void sparsity_pattern_global_thresh(const csc_matrix &A, double thresh, csc_matrix &S) {
+void sparsity_pattern_global_thresh(const csc_matrix &A,const double thresh, csc_matrix &S) {
     std::vector<double> inputVals{A.getValuesCopy()};
     std::vector<size_t> inputRowIndices{A.getRowIndicesCopy()};
     std::vector<size_t> inputColPointers{A.getColPointersCopy()};
@@ -75,16 +75,47 @@ void sparsity_pattern_global_thresh(const csc_matrix &A, double thresh, csc_matr
         }
     }
 
-    // Debug print for the diagonals
-    /* std::cout << "Diagonal: " << std::endl;
-    for (size_t n = 0; n < diag.size(); ++n) {
-        std::cout << diag[n] << " ";
-    }
-    std::cout << std::endl; */
+    // Filter the values with the threshold with the input values array
+    // Genrate the val, rowIndices and colPointers for the sparsity pattern
+    // TODO: Use arrays instead of vectors for better performance
+    // TODO: change the type of the sparsity pattern values by templating
+    std::vector<double> sparsityValues;
+    std::vector<size_t> sparsityRowIndices;
+    std::vector<size_t> sparsityColPointers;
+    sparsityValues.reserve(nnz);
+    sparsityRowIndices.reserve(nnz);
+    sparsityColPointers.reserve(numCols + 1);
+    sparsityColPointers.push_back(0);
 
-    std::cout << "Vals: " << std::endl;
-    for (size_t n = 0; n < 10; ++n) {
-        std::cout << inputVals[n] << " ";
+    for (size_t j = 0; j < numCols; ++j) {
+        const size_t colStart = inputColPointers[j];
+        const size_t colEnd = inputColPointers[j + 1];
+        unsigned int nnzCount{0};
+        for (size_t i = colStart; i < colEnd; ++i) {
+            if (std::abs(inputVals[i]) > thresh) {
+                // TODO: Optmize the values array by initilizing later
+                sparsityValues.push_back(1.0);
+                sparsityRowIndices.push_back(inputRowIndices[i]);
+                ++nnzCount;
+            }
+        }
+
+        sparsityColPointers.push_back(nnzCount);
     }
-    std::cout << std::endl;
+
+    const size_t sparsityNNZ = sparsityRowIndices.size();
+    const size_t sparsityNumCols = numCols;
+    const size_t sparsityNumRows = numRows;
+
+    // TODO: Resize the vectors if too small compared to the input vector
+
+    // Construct the sparsity pattern matrix
+    S.setNNZ(sparsityNNZ);
+    S.setNumCols(sparsityNumCols);
+    S.setNumRows(sparsityNumRows);
+    S.setRowIndices(std::move(sparsityRowIndices));
+    S.setColPointers(std::move(sparsityColPointers));
+    S.setValues(std::move(sparsityValues));
+
+    // TODO: Matrix matrix multiplication of S for level 2 neighbors
 }
