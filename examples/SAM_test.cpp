@@ -98,8 +98,8 @@ int main()
     std::vector<csc_matrix> sequence(numMatrices);
 
     // Read the sequence of the matrices from .mat files and store them in the vector
-    for (int i = 1 ; i < numMatrices; i++) {
-        const std::string fileName = "/home/rishad/SAM-HPC/data_13x21/ros2_A_" + std::to_string(i-1) + ".mat";
+    for (int i = 0 ; i < numMatrices; i++) {
+        const std::string fileName = "/home/rishad/SAM-HPC/data/matrix_" + std::to_string(i + 1) + ".mat";
         if (!read_mat(fileName.c_str(), sequence[i])) {
             std::cerr << "Error reading matrix file" << std::endl;
             return -1;
@@ -118,17 +118,13 @@ int main()
         csc_matrix Mk;                         // Actual values of the map
         
         // Compute the sparsity pattern for SAM for the current source matrix
-        // simple_sparsity_pattern(A0, Sk);
+        simple_sparsity_pattern(A0, Sk);
         // sparsity_pattern_global_thresh(A0, 0.001, Sk);
-        sparsity_pattern_col_thresh(A0, 0.9, Sk);
+        // sparsity_pattern_col_thresh(A0, 0.5, Sk);
+        // sparsity_pattern_lfil_thresh(A0, 3, Sk);
 
         // Compute the map
-        Mk = SAM(A0, Ak, Sk);
-
-        // Print the map matrix
-        /* std::cout << "Mk: " << std::endl;
-        Mk.printMatrix();
-        std::cout << std::endl; */
+        Mk = SAM(Ak, A0, Sk);
     }
 
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
