@@ -99,7 +99,7 @@ int main()
 
     // Read the sequence of the matrices from .mat files and store them in the vector
     for (int i = 0 ; i < numMatrices; i++) {
-        const std::string fileName = "/home/rishad/SAM-HPC/data/matrix_" + std::to_string(i + 1) + ".mat";
+        const std::string fileName = "/home/rishad/SAM-HPC/data_2x3/ros2_A_" + std::to_string(i) + ".mat";
         if (!read_mat(fileName.c_str(), sequence[i])) {
             std::cerr << "Error reading matrix file" << std::endl;
             return -1;
@@ -118,9 +118,10 @@ int main()
         csc_matrix Mk;                         // Actual values of the map
         
         // Compute the sparsity pattern for SAM for the current source matrix
-        simple_sparsity_pattern(A0, Sk);
+        // std::cout << "Matrix A_" << i << std::endl;
+        // simple_sparsity_pattern(A0, Sk);
         // sparsity_pattern_global_thresh(A0, 0.001, Sk);
-        // sparsity_pattern_col_thresh(A0, 0.5, Sk);
+        // sparsity_pattern_col_thresh(A0, 0.8, Sk);
         // sparsity_pattern_lfil_thresh(A0, 3, Sk);
 
         // Compute the map

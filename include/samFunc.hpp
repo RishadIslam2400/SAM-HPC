@@ -81,6 +81,7 @@ private:
 // The SAM algorithm
 csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_matrix& S)
 {
+    // std::cout << "Starting the SAM algorithm" << std::endl;
     csc_matrix MM;
 
     // Construct the map Matrix
@@ -113,14 +114,16 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
     // I.reserve(sparsityNNZ);
 
     for (size_t j = 0; j < sparsityNumCols; ++j) {
+        // std::cout << std::endl;
+        // std::cout << "Constructing I and J for column " << j << std::endl;
         // TODO: this is for the sequential implementation
         // TODO: Use a map insted of a vector for marker
         std::vector<int> marker(sparsityNumRows, -1);
         std::vector<size_t> J;
         std::vector<size_t> I;
 
-        size_t colBeg = sparsityColPointers[j];
-        size_t colEnd = sparsityColPointers[j + 1];
+        const size_t colBeg = sparsityColPointers[j];
+        const size_t colEnd = sparsityColPointers[j + 1];
 
         J.reserve(colEnd - colBeg);
         I.reserve(2 * (colEnd - colBeg));
@@ -147,6 +150,7 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         // Sort the row indices for generating the submatrix
         std::sort(I.begin(), I.end());
 
+        // std::cout << "Genrerated I and J for column " << j << ", size of I: " << I.size() << ", size of J: " << J.size() << std::endl;
 
         // Initialize the RHS vector maintaining the dimension of the submatrix
         std::vector<double> rhs(I.size(), 0.0);
@@ -156,27 +160,30 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         size_t targetColEnd = targetMatrixColPointers[j + 1];
 
         // Populate the rhs vector
-        for (size_t i{0}, targetRow{targetColBeg}; (i < I.size()) && (targetRow < targetColEnd);) {
+        for (size_t i = 0, targetRow = targetColBeg; (i < I.size()) && (targetRow < targetColEnd);) {
             // Use the marker to map the row index of the original matrix to the submatrix
             // marker[I[i]] = static_cast<int>(i);
 
-            size_t submatrixRowIdx = I[i];
-            size_t targetRowIdx = targetMatrixRowIndices[targetRow];
-            if (submatrixRowIdx == targetRowIdx) {
+            if (I[i] == targetMatrixRowIndices[targetRow]) {
                 rhs[i] = targetMatrixValues[targetRow];
                 // TODO: update the map/marker to keep track of the index of the corresponding row
-                ++i;
-                ++targetRow;
-            } else if(submatrixRowIdx > targetRowIdx) {
-                ++targetRow;
-            } else {
-                ++i;
+                i++;
+                targetRow++;
+                continue;
+            } else if(I[i] > targetMatrixRowIndices[targetRow]) {
+                targetRow++;
+                continue;
             }
+            i++;
         }
+
+        // std::cout << "Genrerated the rhs vector for column " << j << ", size of rhs: " << rhs.size() << std::endl;
 
         // This submatrix will be in column major order
         // TODO: make the submatrix 1D vector
         std::vector<std::vector<double>> submatrix(J.size(), std::vector<double>(I.size(), 0.0));
+
+        // std::cout << "Starting to populate the submatrix for column " << j << std::endl;
 
         // Populate the submatrix
         for (size_t submatrixColIdx = 0, i = colBeg; i < colEnd; ++i, ++submatrixColIdx) {
@@ -185,21 +192,22 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
             size_t sourceColBeg = sourceMatrixColPointers[rowIdx];
             size_t sourceColEnd = sourceMatrixColPointers[rowIdx + 1];
 
-            for (size_t k{0}, sourceRow{sourceColBeg}; (k < I.size()) && (sourceRow < sourceColBeg);) {                
-                size_t submatrixRowIdx = I[k];
-                size_t sourceRowIdx = sourceMatrixRowIndices[sourceRow];
-                if (submatrixRowIdx == sourceRowIdx) {
+            for (size_t k{0}, sourceRow{sourceColBeg}; (k < I.size()) && (sourceRow < sourceColEnd);) {
+                if (I[k] == sourceMatrixRowIndices[sourceRow]) {
                     submatrix[submatrixColIdx][k] = sourceMatrixValues[sourceRow];
                     // TODO: update the map/marker to keep track of the index of the corresponding row
-                    ++i;
-                    ++sourceRow;
-                } else if(submatrixRowIdx > sourceRowIdx) {
-                    ++sourceRow;
-                } else {
-                    ++i;
+                    k++;
+                    sourceRow++;
+                    continue;
+                } else if(I[k] > sourceMatrixRowIndices[sourceRow]) {
+                    sourceRow++;
+                    continue;
                 }
+                k++;
             }
         }
+
+        // std::cout << "Populated the submatrix for column " << j << std::endl;
 
         // Initialize the map vector to store the solution
         std::vector<double> mapColumn(J.size(), 0.0);
