@@ -122,7 +122,7 @@ int main()
         // simple_sparsity_pattern(A0, Sk);
         // sparsity_pattern_global_thresh(A0, 0.001, Sk);
         // sparsity_pattern_col_thresh(A0, 0.8, Sk);
-        // sparsity_pattern_lfil_thresh(A0, 3, Sk);
+        sparsity_pattern_lfil_thresh(A0, 5, Sk);
 
         // Compute the map
         Mk = SAM(Ak, A0, Sk);

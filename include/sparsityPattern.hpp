@@ -230,6 +230,9 @@ void sparsity_pattern_lfil_thresh(const csc_matrix &A, const unsigned int lfil, 
     sparsityColPointers.reserve(numCols + 1);
     sparsityColPointers.push_back(0);
 
+    // Keep track of the nnz count per column to update colPointers array
+    unsigned int nnzCount{0};
+
     // Iterate over the columns
     for (size_t j = 0; j < numCols; ++j) {
         const size_t colStart = inputColPointers[j];
@@ -240,7 +243,8 @@ void sparsity_pattern_lfil_thresh(const csc_matrix &A, const unsigned int lfil, 
         // then keep all the entries in the current column in the sparsity pattern
         if (lfil >= numEntriesCurrentColumn) {
             sparsityRowIndices.insert(sparsityRowIndices.end(), inputRowIndices.begin() + colStart, inputRowIndices.begin() + colEnd);
-            sparsityColPointers.push_back(numEntriesCurrentColumn);
+            nnzCount += numEntriesCurrentColumn;
+            sparsityColPointers.push_back(nnzCount);
         }
         else {
             // Sort the current column in descendin order to find the lfil largest entries
@@ -271,7 +275,8 @@ void sparsity_pattern_lfil_thresh(const csc_matrix &A, const unsigned int lfil, 
             }
 
             // Construct the sparsity pattern column pointers
-            sparsityColPointers.push_back(lfil);
+            nnzCount += lfil;
+            sparsityColPointers.push_back(nnzCount);
         }
     }
 
