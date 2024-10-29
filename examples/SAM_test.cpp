@@ -8,9 +8,10 @@
 
 #include "samFunc.hpp"
 #include "sparsityPattern.hpp"
+#include "cscMatrix.hpp"
 
 // Function to read .mat file directly using MATLAB API
-bool read_mat(const char *filename, csc_matrix& sparse_matrix)
+bool read_mat(const char *filename, csc_matrix<double, ptrdiff_t> &sparse_matrix)
 {
     // Read the .mat file
     MATFile *matfile = matOpen(filename, "r");
@@ -74,15 +75,15 @@ bool read_mat(const char *filename, csc_matrix& sparse_matrix)
 
     // Populate the sparse matrix
     std::vector<double> values(val, val + nnz);
-    std::vector<size_t> rows(rowIndices, rowIndices + nnz);
-    std::vector<size_t> cols(colPointers, colPointers + numCols + 1);
+    std::vector<ptrdiff_t> rows(rowIndices, rowIndices + nnz);
+    std::vector<ptrdiff_t> cols(colPointers, colPointers + numCols + 1);
     
-    sparse_matrix.setValues(std::move(values));
-    sparse_matrix.setRowIndices(std::move(rows));
-    sparse_matrix.setColPointers(std::move(cols));
-    sparse_matrix.setNumCols(numCols);
-    sparse_matrix.setNumRows(numRows);
-    sparse_matrix.setNNZ(nnz);
+    sparse_matrix.mColPointers = std::move(cols);
+    sparse_matrix.mRowIndices = std::move(rows);
+    sparse_matrix.mValues = std::move(values);
+    sparse_matrix.mNumCols = numCols;
+    sparse_matrix.mNumRows = numRows;
+    sparse_matrix.mNNZ = nnz;
 
     mxDestroyArray(sparseArray);
     matClose(matfile);
@@ -95,7 +96,7 @@ int main()
     constexpr unsigned int numMatrices = 3;
 
     // Seqeunce of matrices
-    std::vector<csc_matrix> sequence(numMatrices);
+    std::vector<csc_matrix<double, ptrdiff_t>> sequence(numMatrices);
 
     // Read the sequence of the matrices from .mat files and store them in the vector
     for (int i = 0 ; i < numMatrices; i++) {
@@ -107,25 +108,25 @@ int main()
     }
 
     // The initial matrix is the target matrix
-    csc_matrix A0(std::cref(sequence[0]));    
+    csc_matrix<> A0(std::cref(sequence[0]));    
 
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
     // SAM function to map other matrices in the sequence to the target matrix
     for (int i = 1; i < numMatrices; i++) {
-        csc_matrix Ak(std::cref(sequence[i])); // Current source matrix
-        csc_matrix Sk;                         // Sparsity pattern for the SAM
-        csc_matrix Mk;                         // Actual values of the map
+        csc_matrix<> Ak(std::cref(sequence[i])); // Current source matrix
+        csc_matrix<> Sk;                         // Sparsity pattern for the SAM
+        csc_matrix<> Mk;                         // Actual values of the map
         
         // Compute the sparsity pattern for SAM for the current source matrix
         // std::cout << "Matrix A_" << i << std::endl;
-        // simple_sparsity_pattern(A0, Sk);
-        // sparsity_pattern_global_thresh(A0, 0.001, Sk);
-        // sparsity_pattern_col_thresh(A0, 0.8, Sk);
-        sparsity_pattern_lfil_thresh(A0, 5, Sk);
+        // simple_sparsity_pattern(Ak, Sk);
+        // sparsity_pattern_global_thresh(Ak, 0.001, Sk);
+        sparsity_pattern_col_thresh(A0, 0.8, Sk);
+        // sparsity_pattern_lfil_thresh(A0, 5, Sk);
 
         // Compute the map
-        Mk = SAM(Ak, A0, Sk);
+        SAM(Ak, A0, Sk, Mk);
     }
 
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();

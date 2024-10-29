@@ -11,100 +11,32 @@
 
 #include "householderQR.hpp"
 #include "mgsQR.hpp"
-
-// Representation of the sparse matrices
-// It uses compressed sparse column (CSC) storage format
-
-// TODO: Make templated version of the class
-// TODO: Refine and optimizecsc_matrix using amgcl
-class csc_matrix
-{
-public:
-    csc_matrix() = default;
-    
-    // Constructor
-    csc_matrix(const std::vector<double> &values, const std::vector<size_t> &rowIndices, const std::vector<size_t> &colPointers, size_t numCols, size_t numRows, size_t nnz)
-        : mValues(values), mRowIndices(rowIndices), mColPointers(colPointers), mNumCols(numCols), mNumRows(numRows), mNNZ(nnz) {}
-
-    // Copy constructor
-    csc_matrix(const csc_matrix &other)
-        : mValues(other.mValues), mRowIndices(other.mRowIndices), mColPointers(other.mColPointers),
-          mNumCols(other.mNumCols), mNumRows(other.mNumRows), mNNZ(other.mNNZ) {}
-
-    // Getters - the vectors are const references 
-    const std::vector<double> &getValuesRef() const { return mValues; }
-    const std::vector<size_t> &getRowIndicesRef() const { return mRowIndices; }
-    const std::vector<size_t> &getColPointersRef() const { return mColPointers; }
-    size_t getNumCols() const { return mNumCols; }
-    size_t getNumRows() const { return mNumRows; }
-    size_t getNNZ() const { return mNNZ; }
-
-    // Getters - returns the copy of the vectors
-    std::vector<double> getValuesCopy() const { return mValues; }
-    std::vector<size_t> getRowIndicesCopy() const { return mRowIndices; }
-    std::vector<size_t> getColPointersCopy() const { return mColPointers; }
-
-    // Setters
-    void setValues(const std::vector<double> &values) { mValues = values; }
-    void setValues(const std::vector<double> &&values) { mValues = std::move(values); } // Move overload
-
-    void setRowIndices(const std::vector<size_t> &rowIndices) { mRowIndices = rowIndices; }
-    void setRowIndices(const std::vector<size_t> &&rowIndices) { mRowIndices = std::move(rowIndices); } // Move overload
-
-    void setColPointers(const std::vector<size_t> &colPointers) { mColPointers = colPointers; }
-    void setColPointers(const std::vector<size_t> &&colPointers) { mColPointers = std::move(colPointers); } // Move overload
-
-    void setNumCols(size_t numCols) { mNumCols = numCols; }
-    void setNumRows(size_t numRows) { mNumRows = numRows; }
-    void setNNZ(size_t nnz) { mNNZ = nnz; }
-
-    void printMatrix() const
-    {
-        for (size_t col = 0; col < mNumCols; ++col)
-        {
-            for (size_t idx = mColPointers[col]; idx < mColPointers[col + 1]; ++idx)
-            {
-                std::cout << "(" << mRowIndices[idx] + 1 << ", " << col + 1 << ") = " << mValues[idx] << std::endl;
-            }
-        }
-    }
-
-private:
-    std::vector<double> mValues;      // Non-zero elements
-    std::vector<size_t> mRowIndices;  // Row indices
-    std::vector<size_t> mColPointers; // Pointer to the start of each column in the row indices array
-    size_t mNumCols;                  // total number of columns
-    size_t mNumRows;                  // total number of rows
-    size_t mNNZ;                      // total number of non-zero elements
-};
+#include "cscMatrix.hpp"
 
 // The SAM algorithm
-csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_matrix& S)
+void SAM(const csc_matrix<>& source, const csc_matrix<>& target, const csc_matrix<>& S, csc_matrix<>& MM)
 {
-    // std::cout << "Starting the SAM algorithm" << std::endl;
-    csc_matrix MM;
-
     // Construct the map Matrix
-    const size_t sparsityNumCols = S.getNumCols();
-    const size_t sparsityNumRows = S.getNumRows();
-    const size_t sparsityNNZ = S.getNNZ();
+    const size_t sparsityNumCols = S.mNumCols;
+    const size_t sparsityNumRows = S.mNumRows;
+    const size_t sparsityNNZ = S.mNNZ;
 
     std::vector<double> mapValues;
     mapValues.reserve(sparsityNNZ);
 
     // Get the sparsity pattern information
-    const std::vector<size_t> sparsityRowIndices = S.getRowIndicesRef();
-    const std::vector<size_t> sparsityColPointers = S.getColPointersRef();
+    const std::vector<ptrdiff_t>& sparsityRowIndices = std::ref(S.mRowIndices);
+    const std::vector<ptrdiff_t>& sparsityColPointers = std::ref(S.mColPointers);
 
     // Get the values and row indices from the source matrix
-    const std::vector<double> sourceMatrixValues(source.getValuesRef());
-    const std::vector<size_t> sourceMatrixRowIndices(source.getRowIndicesRef());
-    const std::vector<size_t> sourceMatrixColPointers(source.getColPointersRef());
+    const std::vector<double>& sourceMatrixValues = std::ref(source.mValues);
+    const std::vector<ptrdiff_t>& sourceMatrixRowIndices = std::ref(source.mRowIndices);
+    const std::vector<ptrdiff_t>& sourceMatrixColPointers = std::ref(source.mColPointers);
 
     // Get the values and row indices from the target matrix
-    const std::vector<double> targetMatrixValues(target.getValuesRef());
-    const std::vector<size_t> targetMatrixRowIndices(target.getRowIndicesRef());
-    const std::vector<size_t> targetMatrixColPointers(target.getColPointersRef());
+    const std::vector<double>& targetMatrixValues = std::ref(target.mValues);
+    const std::vector<ptrdiff_t>& targetMatrixRowIndices = std::ref(target.mRowIndices);
+    const std::vector<ptrdiff_t>& targetMatrixColPointers = std::ref(target.mColPointers);
 
     // Construct the submatrix information for each column
     // std::vector<size_t> marker(sparsityNumRows, -1);
@@ -113,33 +45,33 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
     // J.reserve(sparsityNumCols);
     // I.reserve(sparsityNNZ);
 
-    for (size_t j = 0; j < sparsityNumCols; ++j) {
+    for (ptrdiff_t j = 0; j < static_cast<ptrdiff_t>(sparsityNumCols); ++j) {
         // std::cout << std::endl;
         // std::cout << "Constructing I and J for column " << j << std::endl;
         // TODO: this is for the sequential implementation
         // TODO: Use a map insted of a vector for marker
         std::vector<int> marker(sparsityNumRows, -1);
-        std::vector<size_t> J;
-        std::vector<size_t> I;
+        std::vector<ptrdiff_t> J;
+        std::vector<ptrdiff_t> I;
 
-        const size_t colBeg = sparsityColPointers[j];
-        const size_t colEnd = sparsityColPointers[j + 1];
+        const ptrdiff_t colBeg = sparsityColPointers[j];
+        const ptrdiff_t colEnd = sparsityColPointers[j + 1];
 
         J.reserve(colEnd - colBeg);
         I.reserve(2 * (colEnd - colBeg));
 
         J.assign(sparsityRowIndices.begin() + colBeg, sparsityRowIndices.begin() + colEnd);
-        assert(J.size() == (colEnd - colBeg) && "Unexpected column dimension of submatrix");
+        assert(static_cast<ptrdiff_t>(J.size()) == (colEnd - colBeg) && "Unexpected column dimension of submatrix");
 
         // I.clear(); // TODO: not required for sequential implementation
 
         // Iterate over the non zeros of the current column
-        for (size_t i = colBeg; i < colEnd; ++i) {
-            size_t rowIdx = sparsityRowIndices[i];
+        for (ptrdiff_t i = colBeg; i < colEnd; ++i) {
+            ptrdiff_t rowIdx = sparsityRowIndices[i];
 
             // Iterate over the non zeros of the column specified by rowIdx
-            for (size_t start = sparsityColPointers[rowIdx], end = sparsityColPointers[rowIdx + 1]; start < end; ++start) {
-                size_t submatrixRowIdx = sparsityRowIndices[start];
+            for (ptrdiff_t start = sparsityColPointers[rowIdx], end = sparsityColPointers[rowIdx + 1]; start < end; ++start) {
+                ptrdiff_t submatrixRowIdx = sparsityRowIndices[start];
                 if (marker[submatrixRowIdx] < 0) {
                     marker[submatrixRowIdx] = 1;
                     I.push_back(submatrixRowIdx);
@@ -156,11 +88,11 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         std::vector<double> rhs(I.size(), 0.0);
 
         // Extract the corresponding column from the target matrix
-        size_t targetColBeg = targetMatrixColPointers[j];
-        size_t targetColEnd = targetMatrixColPointers[j + 1];
+        ptrdiff_t targetColBeg = targetMatrixColPointers[j];
+        ptrdiff_t targetColEnd = targetMatrixColPointers[j + 1];
 
         // Populate the rhs vector
-        for (size_t i = 0, targetRow = targetColBeg; (i < I.size()) && (targetRow < targetColEnd);) {
+        for (ptrdiff_t i = 0, targetRow = targetColBeg; (i < static_cast<ptrdiff_t>(I.size())) && (targetRow < targetColEnd);) {
             // Use the marker to map the row index of the original matrix to the submatrix
             // marker[I[i]] = static_cast<int>(i);
 
@@ -186,13 +118,13 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         // std::cout << "Starting to populate the submatrix for column " << j << std::endl;
 
         // Populate the submatrix
-        for (size_t submatrixColIdx = 0, i = colBeg; i < colEnd; ++i, ++submatrixColIdx) {
-            size_t rowIdx = sparsityRowIndices[i];
+        for (ptrdiff_t submatrixColIdx = 0, i = colBeg; i < colEnd; ++i, ++submatrixColIdx) {
+            ptrdiff_t rowIdx = sparsityRowIndices[i];
 
-            size_t sourceColBeg = sourceMatrixColPointers[rowIdx];
-            size_t sourceColEnd = sourceMatrixColPointers[rowIdx + 1];
+            ptrdiff_t sourceColBeg = sourceMatrixColPointers[rowIdx];
+            ptrdiff_t sourceColEnd = sourceMatrixColPointers[rowIdx + 1];
 
-            for (size_t k{0}, sourceRow{sourceColBeg}; (k < I.size()) && (sourceRow < sourceColEnd);) {
+            for (ptrdiff_t k{0}, sourceRow{sourceColBeg}; (k < static_cast<ptrdiff_t>(I.size())) && (sourceRow < sourceColEnd);) {
                 if (I[k] == sourceMatrixRowIndices[sourceRow]) {
                     submatrix[submatrixColIdx][k] = sourceMatrixValues[sourceRow];
                     // TODO: update the map/marker to keep track of the index of the corresponding row
@@ -223,12 +155,10 @@ csc_matrix SAM(const csc_matrix& source, const csc_matrix& target, const csc_mat
         mapValues.insert(mapValues.end(), mapColumn.begin(), mapColumn.end());
     }
 
-    MM.setNumCols(sparsityNumCols);
-    MM.setNumRows(sparsityNumRows);
-    MM.setNNZ(sparsityNNZ);
-    MM.setRowIndices(std::ref(S.getRowIndicesRef()));
-    MM.setColPointers(std::ref(S.getColPointersRef()));
-    MM.setValues(std::move(mapValues));
-
-    return MM;
+    MM.mNumCols = sparsityNumCols;
+    MM.mNumRows = sparsityNumRows;
+    MM.mNNZ = sparsityNNZ;
+    MM.mRowIndices = std::ref(S.mRowIndices);
+    MM.mColPointers = std::ref(S.mColPointers);
+    MM.mValues = std::move(mapValues);
 }

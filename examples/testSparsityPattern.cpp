@@ -6,9 +6,10 @@
 
 #include "sparsityPattern.hpp"
 #include "samFunc.hpp"
+#include "cscMatrix.hpp"
 
 // Function to read .mat file directly using MATLAB API
-bool read_mat(const char *filename, csc_matrix& sparse_matrix) {
+bool read_mat(const char *filename, csc_matrix<double, ptrdiff_t>& sparse_matrix) {
     // Read the .mat file
     MATFile *matfile = matOpen(filename, "r");
     if (!matfile) {
@@ -71,15 +72,15 @@ bool read_mat(const char *filename, csc_matrix& sparse_matrix) {
 
     // Populate the sparse matrix
     std::vector<double> values(val, val + nnz);
-    std::vector<size_t> rows(rowIndices, rowIndices + nnz);
-    std::vector<size_t> cols(colPointers, colPointers + numCols + 1);
-    
-    sparse_matrix.setValues(std::move(values));
-    sparse_matrix.setRowIndices(std::move(rows));
-    sparse_matrix.setColPointers(std::move(cols));
-    sparse_matrix.setNumCols(numCols);
-    sparse_matrix.setNumRows(numRows);
-    sparse_matrix.setNNZ(nnz);
+    std::vector<ptrdiff_t> rows(rowIndices, rowIndices + nnz);
+    std::vector<ptrdiff_t> cols(colPointers, colPointers + numCols + 1);
+
+    sparse_matrix.mColPointers = std::move(cols);
+    sparse_matrix.mRowIndices = std::move(rows);
+    sparse_matrix.mValues = std::move(values);
+    sparse_matrix.mNumCols = numCols;
+    sparse_matrix.mNumRows = numRows;
+    sparse_matrix.mNNZ = nnz;
 
     mxDestroyArray(sparseArray);
     matClose(matfile);
@@ -87,8 +88,8 @@ bool read_mat(const char *filename, csc_matrix& sparse_matrix) {
 }
 
 int main() {
-    csc_matrix A;
-    csc_matrix S;
+    csc_matrix<> A;
+    csc_matrix<> S;
 
     const std::string fileName = "/home/rishad/SAM-HPC/data/matrix_1.mat";
     if (!read_mat(fileName.c_str(), A)) {
