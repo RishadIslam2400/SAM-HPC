@@ -21,16 +21,16 @@ Use either pragma unroll or manual loop unrolling */
         index : starting index for the vector
 
     Example: Suppose x is a vector {1, 2, 3, 4}, y is a vector {5, 6, 7, 8} and index = 1
-    Then the value returned by partialdot_product(x, y) is 80, which is computed by
+    Then the value returned by partialdot_product(x, y) is 65, which is computed by
         x[1] * y[1] + x[2] * y[2] + x[3] * y[3]
-        = 4 * 6 + 3 * 7 + 4 * 8
-        = 24 + 21 + 32
-        = 75
+        = 2 * 6 + 3 * 7 + 4 * 8
+        = 12 + 21 + 32
+        = 65
 
     Features: This implementation has time complexity
     O(x.size()) and requires O(1) additional memory.          */
 
-double partialdot_product(const std::vector<double>& x, const std::vector<double>& y, size_t index) {
+double partialdot_product(const std::vector<double>& x, const std::vector<double>& y, const size_t index) {
     assert(x.size() == y.size() && "Vectors must be of the same length");
 
     return std::transform_reduce(
@@ -44,6 +44,24 @@ double partialdot_product(const std::vector<double>& x, const std::vector<double
     );
 }
 
+/* double partialdot_product(const std::vector<double>& x, const std::vector<double>& y, const size_t index) {
+    assert(x.size() == y.size() && "Vectors must be of the same length");
+    
+    size_t length = x.size();
+    double sum = 0.0;
+    size_t length5 = length % 5;
+    size_t i;
+
+    for (i = index; i < length5; i++) {
+        sum += x[i] * y[i];
+    }
+    for (; i < length; i += 5) {
+        sum += x[i] * y[i] + x[i + 1] * y[i + 1] + x[i + 2] * y[i + 2] + x[i + 3] * y[i + 3] + x[i + 4] * y[i + 4];
+    }
+
+    return sum;
+} */
+
 /* ----------------------- scalar_div ----------------------- */
 /*  Given a vector, and a scalar value this function divides the values from the
     vector by the scalar value and stores the computed number in the same vector.
@@ -56,7 +74,7 @@ double partialdot_product(const std::vector<double>& x, const std::vector<double
     Features: This implementation has time complexity
     O(length) and requires O(1) additional memory.            */
 
-void scalar_div(std::vector<double>& x, double r) {
+void scalar_div(std::vector<double>& x, const double r) {
     assert(r != 0 && "Division by zero is not allowed");
 
     std::transform(
@@ -67,6 +85,25 @@ void scalar_div(std::vector<double>& x, double r) {
         [r](double val) { return val / r; }
     );
 }
+
+/* void scalar_div(std::vector<double>& x, const double r) {
+    assert(r != 0 && "Division by zero is not allowed");
+
+    size_t length = x.size();
+    size_t length5 = length % 5;
+    size_t i;
+
+    for (i = 0; i < length5; i++) {
+        x[i] /= r;
+    }
+    for (; i < length; i += 5) {
+        x[i] /= r;
+        x[i + 1] /= r;
+        x[i + 2] /= r;
+        x[i + 3] /= r;
+        x[i + 4] /= r;
+    }
+} */
 
 /* -------------------- subdot_product -------------------- */
 /*  Given two vectors and an index this function returns
@@ -93,7 +130,7 @@ void scalar_div(std::vector<double>& x, double r) {
     Features: This implementation has time complexity
     O(length) and requires O(1) additional memory.          */
 
-double subdot_product(const std::vector<double>& x, const std::vector<double>& y, size_t index) {
+double subdot_product(const std::vector<double>& x, const std::vector<double>& y, const size_t index) {
     assert(index + y.size() <= x.size() && "Index out of bounds");
 
     return std::transform_reduce(
@@ -106,6 +143,24 @@ double subdot_product(const std::vector<double>& x, const std::vector<double>& y
         std::multiplies<double>()
     );
 }
+
+/* double subdot_product(const std::vector<double>& x, const std::vector<double>& y, const size_t index) {
+    assert(index + y.size() <= x.size() && "Index out of bounds");
+
+    size_t length = x.size();
+    double sum = 0.0;
+    size_t length5 = length % 5;
+    size_t i;
+
+    for (i = index; i < length5; i++) {
+        sum += x[i + index] * y[i];
+    }
+    for (; i < length; i += 5) {
+        sum += x[i + index] * y[i] + x[i + index + 1] * y[i + 1] + x[i + index + 2] * y[i + 2] + x[i + index + 3] * y[i + 3] + x[i + index + 4] * y[i + 4];
+    }
+
+    return sum;
+} */
 
 /* --------------------- partialscalar_sub --------------------- */
 /*  Given two vectors, a scalar value, and an index, this function
@@ -122,12 +177,12 @@ double subdot_product(const std::vector<double>& x, const std::vector<double>& y
 
     Example: Suppose x is a vector {3, 4, 5}, y is a vector {1, 2, 0, 0, 0},
     r = -1, and index = 2. Then after executing partialscalar_sub(x, -1, 2, y),
-    the array pointed to by y is now {-3, -4, -5}.
+    the array pointed to by y is now {1, 2, -3, -4, -5}.
 
     Features: This implementation has time complexity
     O(length) and requires O(1) additional memory.               */
 
-void partialscalar_sub(std::vector<double>& x, double r, size_t index, std::vector<double>& y) {
+void partialscalar_sub(std::vector<double>& x, const double r, const size_t index, std::vector<double>& y) {
     assert(index + x.size() <= y.size() && "Index out of bounds");
 
     std::transform(
@@ -139,6 +194,25 @@ void partialscalar_sub(std::vector<double>& x, double r, size_t index, std::vect
         [r](double xi, double yi) { return yi - xi * r; }
     );
 }
+
+/* void partialscalar_sub(std::vector<double>& x, const double r, const size_t index, std::vector<double>& y) {
+    assert(index + x.size() <= y.size() && "Index out of bounds");
+
+    size_t length = x.size();
+    size_t length5 = length % 5;
+    size_t i;
+
+    for (i = 0; i < length5; i++) {
+        y[i + index] -= x[i] * r;
+    }
+    for (; i < length; i += 5) {
+        y[i + index] -= x[i] * r;
+        y[i + index + 1] -= x[i + 1] * r;
+        y[i + index + 2] -= x[i + 2] * r;
+        y[i + index + 3] -= x[i + 3] * r;
+        y[i + index + 4] -= x[i + 4] * r;
+    }
+} */
 
 /* ----------------------- householder ----------------------- */
 /*  Given a matrix A of dimension m by n (with n <= m) and
@@ -164,8 +238,7 @@ void partialscalar_sub(std::vector<double>& x, double r, size_t index, std::vect
     ~ 2 * m * n^2 - (2/3) * n^3 and requires O(1) additional
     memory.                                                    */
 
-void householderQR(std::vector<std::vector<double>>& a, std::vector<std::vector<double>>& v, size_t m, size_t n) {
-    double vnorm, vTa, vpartdot;
+void householderQR(std::vector<std::vector<double>>& a, std::vector<std::vector<double>>& v, const size_t m, const size_t n) {
 
     for (size_t i = 0; i < n; ++i) {
         // set v[i] equal to subvector a[i][i : m]
@@ -177,7 +250,7 @@ void householderQR(std::vector<std::vector<double>>& a, std::vector<std::vector<
            prevents the need to recalculate the entire norm of v[i]
            after updating v[i][0] in the following step              */
 
-        vpartdot = partialdot_product(v[i], v[i], 1);
+        const double vpartdot = partialdot_product(v[i], v[i], 1);
 
         /* set v[i][0] = v[i][0] + sign(v[i][0]) * ||v[i]|| */
         if (v[i][0] < 0) {
@@ -187,13 +260,13 @@ void householderQR(std::vector<std::vector<double>>& a, std::vector<std::vector<
         }
 
         // Normalize v[i]
-        vnorm = std::sqrt(v[i][0] * v[i][0] + vpartdot);
+        const double vnorm = std::sqrt(v[i][0] * v[i][0] + vpartdot);
         scalar_div(v[i], vnorm);
 
         for (size_t j = i; j < n; ++j) {
             /* set a[j][i:m] = a[j][i:m] - 2 * (v[i]^T a[j][i:m]) * v[i] */
-            vTa = subdot_product(a[j], v[i], i);
-            vTa *= 2.0;
+            double vTa = subdot_product(a[j], v[i], i);
+            vTa *= 2;
             partialscalar_sub(v[i], vTa, i, a[j]);
         }
     }
@@ -222,7 +295,7 @@ void householderQRSolve(
     // Apply Q^T to rhs
     for (size_t i = 0; i < colDim; ++i) {
         // Compute 2 * (v_i^T * rhs[i:m]) * v_i
-        double vTy = subdot_product(rhs, v[i], i) * 2.0;
+        const double vTy = subdot_product(rhs, v[i], i) * 2.0;
         partialscalar_sub(v[i], vTy, i, rhs);
     }
 

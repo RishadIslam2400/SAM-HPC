@@ -14,7 +14,7 @@
 #include "cscMatrix.hpp"
 
 // The SAM algorithm
-void SAM(const csc_matrix<>& source, const csc_matrix<>& target, const csc_matrix<>& S, csc_matrix<>& MM)
+void SAM(const csc_matrix<>& source, const csc_matrix<>& target, const sparsity_pattern<>& S, csc_matrix<>& MM)
 {
     // Construct the map Matrix
     const size_t sparsityNumCols = S.mNumCols;

@@ -89,7 +89,7 @@ bool read_mat(const char *filename, csc_matrix<double, ptrdiff_t>& sparse_matrix
 
 int main() {
     csc_matrix<> A;
-    csc_matrix<> S;
+    sparsity_pattern<> S;
 
     const std::string fileName = "/home/rishad/SAM-HPC/data/matrix_1.mat";
     if (!read_mat(fileName.c_str(), A)) {
