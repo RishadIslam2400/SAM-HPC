@@ -48,6 +48,7 @@ void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, s
         for (ptrdiff_t i = colStart; i < colEnd; ++i) {
             if ((std::abs((*scaledValues)[i]) > thresh) || (inputRowIndices[i] == j)) {
                 sparsityRowIndices.push_back(inputRowIndices[i]);
+                // TODO: shrink to fit
                 ++nnzCount;
             }
         }
@@ -89,6 +90,8 @@ void sparsity_pattern_col_thresh(const csc_matrix<> &A, const double tau, sparsi
     sparsityColPointers[0] = 0;
 
     // Keep track of the nnz count per column to update colPointers array
+    // TODO: Use nnz cont per column to make use of parallel calculation
+    // TODO: Have scan row size implementation to create the rowPtr for the sparsity pattern
     unsigned int nnzCount{0};
 
     // Sparsify each column for the sparsity pattern S
@@ -112,6 +115,7 @@ void sparsity_pattern_col_thresh(const csc_matrix<> &A, const double tau, sparsi
             // Keep the values greater than the threshold or the diagonal entry
             if (std::abs(inputVals[i]) > colThresh || inputRowIndices[i] == j) {
                 sparsityRowIndices.push_back(inputRowIndices[i]);
+                // TODO: do shrink to fit
                 ++nnzCount;
             }
         }

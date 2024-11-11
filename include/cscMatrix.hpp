@@ -422,4 +422,14 @@ struct sparsity_pattern
         ptr_type e = mColPointers[col + 1];
         return col_iterator(mRowIndices.data() + p, mRowIndices.data() + e);
     }
+
+    void printMatrix() const {
+        for (size_t col = 0; col < mNumCols; ++col)
+        {
+            for (size_t idx = mColPointers[col]; idx < mColPointers[col + 1]; ++idx)
+            {
+                std::cout << "(" << mRowIndices[idx] + 1 << ", " << col + 1 << ")" << std::endl;
+            }
+        }
+    }
 };
