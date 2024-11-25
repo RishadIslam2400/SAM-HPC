@@ -6,6 +6,12 @@
 #include <memory>
 #include <cassert>
 
+//Define the macro for assert
+#define ASSERTM(condition, message) \
+   do { \
+      assert(condition && #message); \
+   } while (0)
+
 // Representation of the sparse matrices
 // It uses compressed sparse column (CSC) storage format
 
@@ -26,6 +32,7 @@ struct csc_matrix
 
     // Constructor
     // Construct the matrix from arrays, nnz not provided
+    // TODO: Fix all the constructors and operator overloads
     template <class PtrRange, class RowRange, class ValRange>
     csc_matrix(size_t nrows, size_t ncols, const PtrRange &colPointers, const RowRange &rowIndices, const ValRange &values) : mNumRows(nrows), mNumCols(ncols), mNNZ(0), mValues(), mRowIndices(), mColPointers() {
         static_assert(static_cast<ptrdiff_t>(nrows + 1) == std::distance(std::begin(colPointers), std::end(colPointers)), "Column Pointers has wrong size in csc constructor");
@@ -170,6 +177,7 @@ struct csc_matrix
             const val_type *m_val;
     };
 
+    // Returns an iterator to the starting of a column
     col_iterator col_begin(size_t col) const {
         ptr_type p = mColPointers[col];
         ptr_type e = mColPointers[col + 1];
@@ -265,13 +273,31 @@ struct csc_matrix
     }
 
     void printMatrix() const {
-        for (size_t col = 0; col < mNumCols; ++col)
-        {
-            for (size_t idx = mColPointers[col]; idx < mColPointers[col + 1]; ++idx)
-            {
+        for (size_t col = 0; col < mNumCols; ++col) {
+            for (size_t idx = mColPointers[col]; idx < mColPointers[col + 1]; ++idx) {
                 std::cout << "(" << mRowIndices[idx] + 1 << ", " << col + 1 << ") = " << mValues[idx] << std::endl;
             }
         }
+    }
+
+    void printColumn(ptrdiff_t col_idx) const {
+        ASSERTM(col_idx <= static_cast<ptrdiff_t>(mNumCols), "The column index is out of bounds");
+        ptrdiff_t col_beg = mColPointers[col_idx - 1];
+        ptrdiff_t col_end = mColPointers[col_idx];
+        std::cout << "Column " << col_idx << ":\n";
+        std::cout << "\tRow Indices: ";
+        for (auto i = col_beg; i < col_end; ++i) {
+            std::cout << mRowIndices[i] << " ";
+        }
+
+        std::cout << std::endl;
+
+        std::cout << "\tValues: ";
+        for (auto i = col_beg; i < col_end; ++i) {
+            std::cout << mValues[i] << " ";
+        }
+
+        std::cout << std::endl << std::endl;
     }
 };
 
@@ -293,6 +319,7 @@ struct sparsity_pattern
 
     // Constructor
     // Construct the matrix from arrays, nnz not provided
+    // TODO: Fix all the constructors and operator overloads
     template <class PtrRange, class RowRange, class ValRange>
     sparsity_pattern(size_t nrows, size_t ncols, const PtrRange &colPointers, const RowRange &rowIndices) : mNumRows(nrows), mNumCols(ncols), mNNZ(0), mRowIndices(), mColPointers() {
         static_assert(static_cast<ptrdiff_t>(nrows + 1) == std::distance(std::begin(colPointers), std::end(colPointers)), "Column Pointers has wrong size in csc constructor");
@@ -417,19 +444,166 @@ struct sparsity_pattern
             const row_type *m_end;
     };
 
+    // Provides an iterator to the column
     col_iterator col_begin(size_t col) const {
         ptr_type p = mColPointers[col];
         ptr_type e = mColPointers[col + 1];
         return col_iterator(mRowIndices.data() + p, mRowIndices.data() + e);
     }
 
+    // Apply binary sparse matrix matrix multiplication for the object
+    // The output of the function is S = S * S.
+    void get_level_2_neighbors() {
+        // binary_spgemm_single_pass(this);
+        binary_spgemm_double_pass(this);
+    }
+
     void printMatrix() const {
-        for (size_t col = 0; col < mNumCols; ++col)
-        {
-            for (size_t idx = mColPointers[col]; idx < mColPointers[col + 1]; ++idx)
-            {
+        for (size_t col = 0; col < mNumCols; ++col) {
+            for (ptrdiff_t idx = mColPointers[col]; idx < mColPointers[col + 1]; ++idx) {
                 std::cout << "(" << mRowIndices[idx] + 1 << ", " << col + 1 << ")" << std::endl;
             }
         }
     }
+
+    void printColumn(ptrdiff_t col_idx) const {
+        ASSERTM(col_idx <= static_cast<ptrdiff_t>(mNumCols), "The column index is out of bounds");
+        ptrdiff_t col_beg = mColPointers[col_idx - 1];
+        ptrdiff_t col_end = mColPointers[col_idx];
+        std::cout << "Column " << col_idx << ":\n";
+        std::cout << "\tRow Indices: ";
+        for (auto i = col_beg; i < col_end; ++i) {
+            std::cout << mRowIndices[i] << " ";
+        }
+
+        std::cout << std::endl << std::endl;
+    }
 };
+
+// This implementation uses a random guess to approximate the number of non-zeros of the resultant matrix
+// so that we can finish the computation in a single pass
+// TODO: find a better prediction of the number of non-zeros
+void binary_spgemm_single_pass(sparsity_pattern<> *S) {
+    // Set the size of the index arrays and values in C
+    const size_t a_numrows = S->mNumRows;
+    const size_t b_numcols = S->mNumCols;
+    const size_t nnz = S->mNNZ;
+    
+    std::vector<ptrdiff_t> colPointers(b_numcols + 1);
+    std::vector<ptrdiff_t> rowIndices;
+    rowIndices.reserve(nnz * nnz); // GUESSING
+
+    // TODO: Parallelize
+
+    // Keep track of the rows for each column of C and find out the numbner of non-zeros in each columnn
+    // TODO: sequential version
+    std::vector<ptrdiff_t> marker(a_numrows, -1);
+
+    ptrdiff_t C_rows_nnz = 0;
+
+
+    // Iterate over all the columns of B
+    for (ptrdiff_t col = 0; col < static_cast<ptrdiff_t>(b_numcols); ++col) {
+        
+        // Iterate over the non-zeros elements of the current column of B
+        for (ptrdiff_t b_row = S->mColPointers[col], b_row_end = S->mColPointers[col + 1]; b_row < b_row_end; ++b_row) {
+            ptrdiff_t b_row_index = S->mRowIndices[b_row];
+
+            // Iterate over the non-zeros of the row_index column of A
+            for (ptrdiff_t a_row = S->mColPointers[b_row_index], a_row_end = S->mColPointers[b_row_index + 1]; a_row < a_row_end; ++a_row) {
+                ptrdiff_t a_row_index = S->mRowIndices[a_row];
+                // If the row index of C for the current column is not set, set it and increase the number of non-zeros
+                // if it is set, skip it
+                if (marker[a_row_index] != col) {
+                    marker[a_row_index] = col;
+                    rowIndices.push_back(a_row_index);
+                    ++C_rows_nnz;
+                }
+            }
+        }
+        // TODO: Sequential version
+        colPointers[col + 1] = C_rows_nnz;
+
+        // Sort the columns
+        // TODO: implement insertion sort function
+        std::sort(rowIndices.begin() + colPointers[col], rowIndices.begin() + colPointers[col + 1]);
+    }
+
+    S->mNNZ = C_rows_nnz;
+    S->mColPointers = std::move(colPointers);
+    S->mRowIndices = std::move(rowIndices);
+}
+
+// This implementation computes the number of non-zeros in each column exactly and then allocates the
+// the vector for storing the row indices
+void binary_spgemm_double_pass(sparsity_pattern<> *S) {
+    // Set the size of the index arrays and values in C
+    const size_t a_numrows = S->mNumRows;
+    const size_t b_numcols = S->mNumCols;
+    std::vector<ptrdiff_t> colPointers(b_numcols + 1);
+
+    // TODO: Parallelize
+
+    // Keep track of the rows for each column of C and find out the numbner of non-zeros in each columnn
+    // TODO: sequential version
+    std::vector<ptrdiff_t> marker(a_numrows, -1);
+
+    // Iterate over all the columns of B
+    for (ptrdiff_t col = 0; col < static_cast<ptrdiff_t>(b_numcols); ++col) {
+        ptrdiff_t C_rows_nnz = 0;
+
+        // Iterate over the non-zeros elements of the current column of B
+        for (ptrdiff_t b_row = S->mColPointers[col], b_row_end = S->mColPointers[col + 1]; b_row < b_row_end; ++b_row) {
+            ptrdiff_t b_row_index = S->mRowIndices[b_row];
+
+            // Iterate over the non-zeros of the row_index column of A
+            for (ptrdiff_t a_row = S->mColPointers[b_row_index], a_row_end = S->mColPointers[b_row_index + 1]; a_row < a_row_end; ++a_row) {
+                ptrdiff_t a_row_index = S->mRowIndices[a_row];
+                // If the row index of C for the current column is not set, set it and increase the number of non-zeros
+                // if it is set, skip it
+                if (marker[a_row_index] != col) {
+                    marker[a_row_index] = col;
+                    ++C_rows_nnz;
+                }
+            }
+        }
+        colPointers[col + 1] = C_rows_nnz;
+    }
+
+    // perform cumulative sum for the col pointers to find the number of non-zeros
+    std::partial_sum(colPointers.cbegin(), colPointers.cend(), colPointers.begin());
+    S->mNNZ = colPointers[b_numcols];
+    std::vector<ptrdiff_t> rowIndices(S->mNNZ);
+
+    marker.clear();
+    marker.assign(a_numrows, -1);
+
+    for (ptrdiff_t col = 0; col < static_cast<ptrdiff_t>(b_numcols); ++col) {
+        ptrdiff_t col_beg = colPointers[col];
+        ptrdiff_t col_end = col_beg;
+
+        // Iterate over the non-zeros elements of the current column of B
+        for (ptrdiff_t b_row = S->mColPointers[col], b_row_end = S->mColPointers[col + 1]; b_row < b_row_end; ++b_row) {
+            ptrdiff_t b_row_index = S->mRowIndices[b_row];
+
+            // Iterate over the non-zeros of the row_index column of A
+            for (ptrdiff_t a_row = S->mColPointers[b_row_index], a_row_end = S->mColPointers[b_row_index + 1]; a_row < a_row_end; ++a_row) {
+                ptrdiff_t a_row_index = S->mRowIndices[a_row];
+                // If the row index of C for the current column is not set, set it and increase the number of non-zeros
+                // if it is set, skip it
+                if (marker[a_row_index] < col_beg) {
+                    marker[a_row_index] = col_end;
+                    rowIndices[col_end] = a_row_index;
+                    ++col_end;
+                }
+            }
+        }
+
+        // Sort the columns
+        // TODO: implement insertion sort function
+        std::sort(rowIndices.begin() + col_beg, rowIndices.begin() + col_end);
+    }
+
+    S->mColPointers = std::move(colPointers);
+    S->mRowIndices = std::move(rowIndices);
+}

@@ -103,8 +103,21 @@ int main() {
     sparsity_pattern_col_thresh(A, 0.9, S);
     // sparsity_pattern_lfil_thresh(A, 3, S);
 
-    sparsity_pattern<> S_squared;
-    binary_spgemm_col_by_col(S, S, S_squared);
+    // Make a copy of sparsity pattern
+    sparsity_pattern<> copy_s;
+    copy_s = S;
 
-    S_squared.printMatrix();
+    std::cout << "Before SPGEMM\n";
+    S.printColumn(50);
+    S.get_level_2_neighbors();
+    std::cout << "After SPGEMM\n";
+    S.printColumn(50);
+
+    // sparsity_pattern<> S_squared_single_pass;
+    sparsity_pattern<> S_squared_double_pass;
+    // binary_spgemm_single_pass(copy_s, copy_s, S_squared_single_pass);
+    binary_spgemm_double_pass(copy_s, copy_s, S_squared_double_pass);
+
+    // S_squared_single_pass.printColumn(50);
+    S_squared_double_pass.printColumn(50);
 }

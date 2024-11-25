@@ -1,3 +1,5 @@
+#pragma once
+
 #include "samFunc.hpp"
 
 #include <memory>
@@ -34,9 +36,8 @@ void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, s
     // TODO: Use arrays instead of vectors for better performance
     // TODO: change the type of the sparsity pattern values by templating
     std::vector<ptrdiff_t> sparsityRowIndices;
-    std::vector<ptrdiff_t> sparsityColPointers;
+    std::vector<ptrdiff_t> sparsityColPointers(numCols + 1);
     sparsityRowIndices.reserve(nnz);
-    sparsityColPointers.reserve(numCols + 1);
     sparsityColPointers[0] = 0;
 
     // Keep track of the nnz count per column to update colPointers array
@@ -67,6 +68,8 @@ void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, s
     S.mRowIndices = std::move(sparsityRowIndices);
     S.mColPointers = std::move(sparsityColPointers);
 
+    S.get_level_2_neighbors();
+
     // std::cout << "Number of NNZ: " << S.mNNZ << std::endl;
 }
 
@@ -84,9 +87,8 @@ void sparsity_pattern_col_thresh(const csc_matrix<> &A, const double tau, sparsi
     // Information to construct the sparsity pattern
     std::vector<double> sparsityValues;
     std::vector<ptrdiff_t> sparsityRowIndices;
-    std::vector<ptrdiff_t> sparsityColPointers;
+    std::vector<ptrdiff_t> sparsityColPointers(numCols + 1);
     sparsityRowIndices.reserve(nnz);
-    sparsityColPointers.reserve(numCols + 1);
     sparsityColPointers[0] = 0;
 
     // Keep track of the nnz count per column to update colPointers array
@@ -135,6 +137,8 @@ void sparsity_pattern_col_thresh(const csc_matrix<> &A, const double tau, sparsi
     S.mRowIndices = std::move(sparsityRowIndices);
     S.mColPointers = std::move(sparsityColPointers);
 
+    S.get_level_2_neighbors();
+
     // std::cout << "Number of NNZ: " << S.mNNZ << std::endl;
 }
 
@@ -150,9 +154,8 @@ void sparsity_pattern_lfil_thresh(const csc_matrix<> &A, const unsigned int lfil
 
     // Information to construct the sparsity pattern
     std::vector<ptrdiff_t> sparsityRowIndices;
-    std::vector<ptrdiff_t> sparsityColPointers;
+    std::vector<ptrdiff_t> sparsityColPointers(numCols + 1);
     sparsityRowIndices.reserve(lfil * numCols);
-    sparsityColPointers.reserve(numCols + 1);
     sparsityColPointers[0] = 0;
 
     // Keep track of the nnz count per column to update colPointers array
@@ -218,6 +221,8 @@ void sparsity_pattern_lfil_thresh(const csc_matrix<> &A, const unsigned int lfil
     S.mNumRows = sparsityNumRows;
     S.mRowIndices = std::move(sparsityRowIndices);
     S.mColPointers = std::move(sparsityColPointers);
+
+    S.get_level_2_neighbors();
 
     // std::cout << "Number of NNZ: " << S.mNNZ << std::endl;
 }

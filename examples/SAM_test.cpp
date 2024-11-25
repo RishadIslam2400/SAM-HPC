@@ -100,7 +100,7 @@ int main()
 
     // Read the sequence of the matrices from .mat files and store them in the vector
     for (int i = 0 ; i < numMatrices; i++) {
-        const std::string fileName = "/home/rishad/SAM-HPC/data_7x11/ros2_A_" + std::to_string(i) + ".mat";
+        const std::string fileName = "/home/rishad/SAM-HPC/data_3x5/ros2_A_" + std::to_string(i) + ".mat";
         if (!read_mat(fileName.c_str(), sequence[i])) {
             std::cerr << "Error reading matrix file" << std::endl;
             return -1;
@@ -122,7 +122,7 @@ int main()
         // std::cout << "Matrix A_" << i << std::endl;
         // simple_sparsity_pattern(Ak, Sk);
         // sparsity_pattern_global_thresh(Ak, 0.001, Sk);
-        sparsity_pattern_col_thresh(Ak, 0.95, Sk);
+        sparsity_pattern_col_thresh(Ak, 0.8, Sk);
         // sparsity_pattern_lfil_thresh(Ak, 5, Sk);
 
         // Compute the map
