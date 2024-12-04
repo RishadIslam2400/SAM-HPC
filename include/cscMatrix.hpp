@@ -14,8 +14,6 @@
 
 // Representation of the sparse matrices
 // It uses compressed sparse column (CSC) storage format
-
-// TODO: Refine and optimizecsc_matrix using amgcl
 template <typename val_type = double, typename row_type = ptrdiff_t, typename ptr_type = row_type> 
 struct csc_matrix
 {
@@ -32,7 +30,6 @@ struct csc_matrix
 
     // Constructor
     // Construct the matrix from arrays, nnz not provided
-    // TODO: Fix all the constructors and operator overloads
     template <class PtrRange, class RowRange, class ValRange>
     csc_matrix(size_t nrows, size_t ncols, const PtrRange &colPointers, const RowRange &rowIndices, const ValRange &values) : mNumRows(nrows), mNumCols(ncols), mNNZ(0), mValues(), mRowIndices(), mColPointers() {
         static_assert(static_cast<ptrdiff_t>(nrows + 1) == std::distance(std::begin(colPointers), std::end(colPointers)), "Column Pointers has wrong size in csc constructor");
@@ -42,9 +39,9 @@ struct csc_matrix
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(std::begin(rowIndices), std::end(rowIndices)), "Row Indices has wrong size in csc constructor");
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(std::begin(values), std::end(values)), "Values has wrong size in csc constructor");
 
-        mColPointers.reserve(ncols + 1);
-        mRowIndices.reserve(mNNZ);
-        mValues.reserve(mNNZ);
+        mColPointers.resize(ncols + 1);
+        mRowIndices.resize(mNNZ);
+        mValues.resize(mNNZ);
 
         mColPointers[0] = colPointers[0];
         for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(ncols); ++i) {
@@ -63,9 +60,9 @@ struct csc_matrix
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(std::begin(rowIndices), std::end(rowIndices)), "Row Indices has wrong size in csc constructor");
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(std::begin(values), std::end(values)), "Values has wrong size in csc constructor");
 
-        mColPointers.reserve(ncols + 1);
-        mRowIndices.reserve(mNNZ);
-        mValues.reserve(mNNZ);
+        mColPointers.resize(ncols + 1);
+        mRowIndices.resize(mNNZ);
+        mValues.resize(mNNZ);
 
         mColPointers[0] = colPointers[0];
         for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(ncols); ++i) {
@@ -87,9 +84,9 @@ struct csc_matrix
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(rowIndices.begin(), rowIndices.end()), "Row Indices has wrong size in csc constructor");
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(values.begin(), values.end()), "Values has wrong size in csc constructor");
 
-        mColPointers.reserve(ncols + 1);
-        mRowIndices.reserve(mNNZ);
-        mValues.reserve(mNNZ);
+        mColPointers.resize(ncols + 1);
+        mRowIndices.resize(mNNZ);
+        mValues.resize(mNNZ);
 
         mColPointers = colPointers;
         mRowIndices = rowIndices;
@@ -103,9 +100,9 @@ struct csc_matrix
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(rowIndices.begin(), rowIndices.end()), "Row Indices has wrong size in csc constructor");
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(values.begin(), values.end()), "Values has wrong size in csc constructor");
 
-        mColPointers.reserve(ncols + 1);
-        mRowIndices.reserve(mNNZ);
-        mValues.reserve(mNNZ);
+        mColPointers.resize(ncols + 1);
+        mRowIndices.resize(mNNZ);
+        mValues.resize(mNNZ);
 
         mColPointers = colPointers;
         mRowIndices = rowIndices;
@@ -185,47 +182,27 @@ struct csc_matrix
     }
 
     // Extract the diagonal of a csc_matrix
-    std::shared_ptr<std::vector<val_type>> extractDiagonal(bool invert = false, bool absolute = false) const {
-        assert(!mColPointers.empty());
+    std::shared_ptr<std::vector<val_type>> extractDiagonal(bool invert_sqrt = false) const {
+        ASSERTM(!mColPointers.empty(), "The matrix is empty");
 
+        // Initialize the diagonal and wrap it with a shared pointer
         auto dia = std::make_shared<std::vector<val_type>>(mNumCols);
 
-        if (invert && absolute) {
+        // retrun inverse square root of the diagonal. Replace the zero entries with 1.
+        if (invert_sqrt) {
             for (ptrdiff_t j = 0; j < static_cast<ptrdiff_t>(mNumCols); ++j) {
                 for (auto a = col_begin(j); a; ++a) {
                     if (a.row() == j) {
                         val_type d = std::abs(a.value());
-                        d = (d == 0.0) ? 1.0 : 1.0 / d;
+                        d = (d == 0.0) ? 1.0 : 1.0 / std::sqrt(d); // This is an expensive operation
                         (*dia)[j] = d;
                         break;
                     }
                 }
             }
         }
-        else if (invert && !absolute) {
-            for (ptrdiff_t j = 0; j < static_cast<ptrdiff_t>(mNumCols); ++j) {
-                for (auto a = col_begin(j); a; ++a) {
-                    if (a.row() == j) {
-                        val_type d = a.value();
-                        d = (d == 0.0) ? 1.0 : 1.0 / d;
-                        (*dia)[j] = d;
-                        break;
-                    }
-                }
-            }
-        }
-        else if (!invert && absolute) {
-            for (ptrdiff_t j = 0; j < static_cast<ptrdiff_t>(mNumCols); ++j) {
-                for (auto a = col_begin(j); a; ++a) {
-                    if (a.row() == j) {
-                        val_type d = std::abs(a.value());
-                        (*dia)[j] = d;
-                        break;
-                    }
-                }
-            }
-        }
-        else if (!invert && !absolute) {
+        // return the diagonal as is
+        else {
             for (ptrdiff_t j = 0; j < static_cast<ptrdiff_t>(mNumCols); ++j) {
                 for (auto a = col_begin(j); a; ++a) {
                     if (a.row() == j) {
@@ -243,7 +220,7 @@ struct csc_matrix
     // Diagonal scaling of the matrix
     std::shared_ptr<std::vector<val_type>> diagonalScale() const {
         assert(!mColPointers.empty());
-        auto diag = extractDiagonal(true, true);
+        auto diag = extractDiagonal(true);
         std::vector<val_type> scaledValues = mValues;
 
         // TODO: Parallelize
@@ -259,7 +236,7 @@ struct csc_matrix
 
         // Pre multiplying a matrix by a diagonal matrix,
         // [a1]^T = d1 * [a1]^T (multiplying each diagonal element with the corresponding row in the matrix)
-        for (ptrdiff_t j = 0; j < static_cast<ptrdiff_t>(mNumRows); ++j) {
+        for (ptrdiff_t j = 0; j < static_cast<ptrdiff_t>(mNumCols); ++j) {
             ptrdiff_t colStart = mColPointers[j];
             ptrdiff_t colEnd = mColPointers[j + 1];
             for (ptrdiff_t i = colStart; i < colEnd; ++i) {
@@ -273,6 +250,11 @@ struct csc_matrix
     }
 
     void printMatrix() const {
+        if (mColPointers.empty()) {
+            std::cout << "The matrix is empty" << std::endl;
+            return;
+        }
+
         for (size_t col = 0; col < mNumCols; ++col) {
             for (size_t idx = mColPointers[col]; idx < mColPointers[col + 1]; ++idx) {
                 std::cout << "(" << mRowIndices[idx] + 1 << ", " << col + 1 << ") = " << mValues[idx] << std::endl;
@@ -281,6 +263,11 @@ struct csc_matrix
     }
 
     void printColumn(ptrdiff_t col_idx) const {
+        if (mColPointers.empty()) {
+            std::cout << "The matrix is empty" << std::endl;
+            return;
+        }
+
         ASSERTM(col_idx <= static_cast<ptrdiff_t>(mNumCols), "The column index is out of bounds");
         ptrdiff_t col_beg = mColPointers[col_idx - 1];
         ptrdiff_t col_end = mColPointers[col_idx];
@@ -310,16 +297,15 @@ struct sparsity_pattern
     // TODO: Use dynamic arrays instead of vectors
     std::vector<row_type> mRowIndices;  // Row indices
     std::vector<ptr_type> mColPointers; // Pointer to the start of each column in the row indices array
-    size_t mNumCols;                  // total number of columns
-    size_t mNumRows;                  // total number of rows
-    size_t mNNZ;                      // total number of non-zero elements
+    size_t mNumCols;                    // total number of columns
+    size_t mNumRows;                    // total number of rows
+    size_t mNNZ;                        // total number of non-zero elements
 
     // Default constructor
     sparsity_pattern() = default;
 
     // Constructor
     // Construct the matrix from arrays, nnz not provided
-    // TODO: Fix all the constructors and operator overloads
     template <class PtrRange, class RowRange, class ValRange>
     sparsity_pattern(size_t nrows, size_t ncols, const PtrRange &colPointers, const RowRange &rowIndices) : mNumRows(nrows), mNumCols(ncols), mNNZ(0), mRowIndices(), mColPointers() {
         static_assert(static_cast<ptrdiff_t>(nrows + 1) == std::distance(std::begin(colPointers), std::end(colPointers)), "Column Pointers has wrong size in csc constructor");
@@ -328,8 +314,8 @@ struct sparsity_pattern
 
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(std::begin(rowIndices), std::end(rowIndices)), "Row Indices has wrong size in csc constructor");
 
-        mColPointers.reserve(ncols + 1);
-        mRowIndices.reserve(mNNZ);
+        mColPointers.resize(ncols + 1);
+        mRowIndices.resize(mNNZ);
 
         mColPointers[0] = colPointers[0];
         for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(ncols); ++i) {
@@ -346,8 +332,8 @@ struct sparsity_pattern
         static_assert(static_cast<ptrdiff_t>(nrows + 1) == std::distance(std::begin(colPointers), std::end(colPointers)), "Column Pointers has wrong size in csc constructor");
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(std::begin(rowIndices), std::end(rowIndices)), "Row Indices has wrong size in csc constructor");
 
-        mColPointers.reserve(ncols + 1);
-        mRowIndices.reserve(mNNZ);
+        mColPointers.resize(ncols + 1);
+        mRowIndices.resize(mNNZ);
 
         mColPointers[0] = colPointers[0];
         for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(ncols); ++i) {
@@ -367,8 +353,8 @@ struct sparsity_pattern
 
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(rowIndices.begin(), rowIndices.end()), "Row Indices has wrong size in csc constructor");
 
-        mColPointers.reserve(ncols + 1);
-        mRowIndices.reserve(mNNZ);
+        mColPointers.resize(ncols + 1);
+        mRowIndices.resize(mNNZ);
 
         mColPointers = colPointers;
         mRowIndices = rowIndices;
@@ -380,8 +366,8 @@ struct sparsity_pattern
         static_assert(static_cast<ptrdiff_t>(nrows + 1) == std::distance(colPointers.begin(), colPointers.end()), "Column Pointers has wrong size in csc constructor");
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(rowIndices.begin(), rowIndices.end()), "Row Indices has wrong size in csc constructor");
 
-        mColPointers.reserve(ncols + 1);
-        mRowIndices.reserve(mNNZ);
+        mColPointers.resize(ncols + 1);
+        mRowIndices.resize(mNNZ);
 
         mColPointers = colPointers;
         mRowIndices = rowIndices;
@@ -459,6 +445,11 @@ struct sparsity_pattern
     }
 
     void printMatrix() const {
+        if (mColPointers.empty()) {
+            std::cout << "The matrix is empty" << std::endl;
+            return;
+        }
+
         for (size_t col = 0; col < mNumCols; ++col) {
             for (ptrdiff_t idx = mColPointers[col]; idx < mColPointers[col + 1]; ++idx) {
                 std::cout << "(" << mRowIndices[idx] + 1 << ", " << col + 1 << ")" << std::endl;
@@ -467,6 +458,11 @@ struct sparsity_pattern
     }
 
     void printColumn(ptrdiff_t col_idx) const {
+        if (mColPointers.empty()) {
+            std::cout << "The matrix is empty" << std::endl;
+            return;
+        }
+
         ASSERTM(col_idx <= static_cast<ptrdiff_t>(mNumCols), "The column index is out of bounds");
         ptrdiff_t col_beg = mColPointers[col_idx - 1];
         ptrdiff_t col_end = mColPointers[col_idx];
@@ -496,7 +492,6 @@ void binary_spgemm_single_pass(sparsity_pattern<> *S) {
     // TODO: Parallelize
 
     // Keep track of the rows for each column of C and find out the numbner of non-zeros in each columnn
-    // TODO: sequential version
     std::vector<ptrdiff_t> marker(a_numrows, -1);
 
     ptrdiff_t C_rows_nnz = 0;
@@ -545,7 +540,6 @@ void binary_spgemm_double_pass(sparsity_pattern<> *S) {
     // TODO: Parallelize
 
     // Keep track of the rows for each column of C and find out the numbner of non-zeros in each columnn
-    // TODO: sequential version
     std::vector<ptrdiff_t> marker(a_numrows, -1);
 
     // Iterate over all the columns of B

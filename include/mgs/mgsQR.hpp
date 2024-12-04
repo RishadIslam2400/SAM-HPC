@@ -31,8 +31,8 @@
     exhibit the orthogonality property.                        */
 
 void gramSchmidt(std::vector<std::vector<double>>& a, std::vector<std::vector<double>>& r, size_t m, size_t n) {
-    double anorm;
-    double tol = 10e-7;
+    double anorm{0.0};
+    double tol = 10e-7; // Paramter can be passed
 
     for (size_t i = 0; i < n; ++i) {
         // Compute the norm of the ith column of A
@@ -46,6 +46,12 @@ void gramSchmidt(std::vector<std::vector<double>>& a, std::vector<std::vector<do
             [](double val) { return val * val; }
         ));
 
+        /* double sum = 0.0;
+        for (size_t j = 0; j < m; ++j) {
+            sum += a[i][j] * a[i][j];
+        }
+        r[i][i] = std::sqrt(sum); */
+
         // Normalize the ith column of A
         // a_i = a_i / ||a_i||
         if (r[i][i] > tol) {
@@ -56,6 +62,10 @@ void gramSchmidt(std::vector<std::vector<double>>& a, std::vector<std::vector<do
                 a[i].begin(),
                 [&](double& elem) { return elem / r[i][i]; }
             );
+
+            /* for (size_t j = 0; j < m; ++j) {
+                a[i][j] /= r[i][i];
+            } */
         } else if (i == 0) { // set a[0] = [1 0 0 ... 0]^T
             a[i][0] = 1;
             for (size_t j = 1; j < m; ++j) {
@@ -71,6 +81,10 @@ void gramSchmidt(std::vector<std::vector<double>>& a, std::vector<std::vector<do
                 [&](double& elem) { return scale_factor * elem; }
             );
 
+            /* for (size_t j = 0; j < m; ++j) {
+                a[i][j] = scale_factor * a[0][j];
+            } */
+
             a[i][i] += 1;
 
             for (size_t j = 1; j < i; ++j) {
@@ -82,6 +96,10 @@ void gramSchmidt(std::vector<std::vector<double>>& a, std::vector<std::vector<do
                     a[i].begin(),
                     [&](double xi, double yi) { return yi - xi * a[j][i]; }
                 );
+
+                /* for (size_t k = 0; k < m; ++k) {
+                    a[i][k] -= a[j][k] * a[j][i];
+                } */
             }
 
             anorm = std::sqrt(std::transform_reduce(
@@ -92,6 +110,13 @@ void gramSchmidt(std::vector<std::vector<double>>& a, std::vector<std::vector<do
                                 std::plus<double>(),
                                 [](double val) { return val * val; }
                             ));
+
+            /*
+            for (size_t j = 0; j < m; ++j) {
+                anorm += a[i][j] * a[i][j];
+            }
+            anorm = std::sqrt(anorm); */
+            
             std::transform(
                 std::execution::seq,
                 a[i].begin(),
@@ -99,6 +124,10 @@ void gramSchmidt(std::vector<std::vector<double>>& a, std::vector<std::vector<do
                 a[i].begin(),
                 [&](double& elem) { return elem / anorm; }
             );
+
+            /* for (size_t j = 0; j < m; ++j) {
+                a[i][j] /= anorm;
+            } */
         }
 
         for (size_t j = i + 1; j < n; ++j) {
@@ -113,6 +142,10 @@ void gramSchmidt(std::vector<std::vector<double>>& a, std::vector<std::vector<do
                 [](double xi, double yi) { return xi * yi; }
             );
 
+            /* for (size_t k = 0; k < m; ++k) {
+                r[j][i] += a[i][k] * a[j][k];
+            } */
+
             // a_j -= r_ij * a_i
             std::transform(
                     std::execution::seq,
@@ -122,6 +155,10 @@ void gramSchmidt(std::vector<std::vector<double>>& a, std::vector<std::vector<do
                     a[j].begin(),
                     [&](double xi, double yi) { return yi - r[j][i] * xi; }
             );
+
+            /* for (size_t k = 0; k < m; ++k) {
+                a[j][k] -= r[j][i] * a[i][k];
+            } */
         }
     }
 }
@@ -134,16 +171,12 @@ void mgsQRSolve(std::vector<std::vector<double>>& A, std::vector<double>& rhs, s
 
     // Compute Q^T * b
     std::vector<double> QTb(colDim, 0.0);
+    // Accessing the row in a column major matrix is not effecient (for large matrices)
+    // Alternative: Tranpose the matrix before computation. Adds extra computational overhead.
     for (size_t i = 0; i < colDim; ++i) {
-        QTb[i] = std::transform_reduce(
-            std::execution::seq,
-            A[i].begin(),
-            A[i].end(),
-            rhs.begin(),
-            0.0,
-            std::plus<double>(),
-            [](double q_ij, double b_j) { return q_ij * b_j; }
-        );
+        for (size_t j = 0; j < rowDim; ++j) {
+            QTb[i] += A[j][i] * rhs[j]; // Dot product of i-th row of Q with b
+        }
     }
 
     // Back substitution to solve R * x = Q^T * b

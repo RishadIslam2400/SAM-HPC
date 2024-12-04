@@ -46,17 +46,12 @@ double partialdot_product(const std::vector<double>& x, const std::vector<double
 
 /* double partialdot_product(const std::vector<double>& x, const std::vector<double>& y, const size_t index) {
     assert(x.size() == y.size() && "Vectors must be of the same length");
-    
+
     size_t length = x.size();
     double sum = 0.0;
-    size_t length5 = length % 5;
-    size_t i;
-
-    for (i = index; i < length5; i++) {
+    
+    for (size_t i = index; i < length; i++) {
         sum += x[i] * y[i];
-    }
-    for (; i < length; i += 5) {
-        sum += x[i] * y[i] + x[i + 1] * y[i + 1] + x[i + 2] * y[i + 2] + x[i + 3] * y[i + 3] + x[i + 4] * y[i + 4];
     }
 
     return sum;
@@ -90,18 +85,9 @@ void scalar_div(std::vector<double>& x, const double r) {
     assert(r != 0 && "Division by zero is not allowed");
 
     size_t length = x.size();
-    size_t length5 = length % 5;
-    size_t i;
 
-    for (i = 0; i < length5; i++) {
+    for (size_t i = 0; i < length; i++) {
         x[i] /= r;
-    }
-    for (; i < length; i += 5) {
-        x[i] /= r;
-        x[i + 1] /= r;
-        x[i + 2] /= r;
-        x[i + 3] /= r;
-        x[i + 4] /= r;
     }
 } */
 
@@ -149,14 +135,9 @@ double subdot_product(const std::vector<double>& x, const std::vector<double>& y
 
     size_t length = x.size();
     double sum = 0.0;
-    size_t length5 = length % 5;
-    size_t i;
 
-    for (i = index; i < length5; i++) {
+    for (size_t i = index; i < length; i++) {
         sum += x[i + index] * y[i];
-    }
-    for (; i < length; i += 5) {
-        sum += x[i + index] * y[i] + x[i + index + 1] * y[i + 1] + x[i + index + 2] * y[i + 2] + x[i + index + 3] * y[i + 3] + x[i + index + 4] * y[i + 4];
     }
 
     return sum;
@@ -199,18 +180,9 @@ void partialscalar_sub(std::vector<double>& x, const double r, const size_t inde
     assert(index + x.size() <= y.size() && "Index out of bounds");
 
     size_t length = x.size();
-    size_t length5 = length % 5;
-    size_t i;
 
-    for (i = 0; i < length5; i++) {
+    for (size_t i = 0; i < length; i++) {
         y[i + index] -= x[i] * r;
-    }
-    for (; i < length; i += 5) {
-        y[i + index] -= x[i] * r;
-        y[i + index + 1] -= x[i + 1] * r;
-        y[i + index + 2] -= x[i + 2] * r;
-        y[i + index + 3] -= x[i + 3] * r;
-        y[i + index + 4] -= x[i + 4] * r;
     }
 } */
 

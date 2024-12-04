@@ -25,18 +25,18 @@ void SAM(const csc_matrix<>& source, const csc_matrix<>& target, const sparsity_
     mapValues.reserve(sparsityNNZ);
 
     // Get the sparsity pattern information
-    const std::vector<ptrdiff_t>& sparsityRowIndices = std::ref(S.mRowIndices);
-    const std::vector<ptrdiff_t>& sparsityColPointers = std::ref(S.mColPointers);
+    const std::vector<ptrdiff_t>& sparsityRowIndices = S.mRowIndices;
+    const std::vector<ptrdiff_t>& sparsityColPointers = S.mColPointers;
 
     // Get the values and row indices from the source matrix
-    const std::vector<double>& sourceMatrixValues = std::ref(source.mValues);
-    const std::vector<ptrdiff_t>& sourceMatrixRowIndices = std::ref(source.mRowIndices);
-    const std::vector<ptrdiff_t>& sourceMatrixColPointers = std::ref(source.mColPointers);
+    const std::vector<double>& sourceMatrixValues = source.mValues;
+    const std::vector<ptrdiff_t>& sourceMatrixRowIndices = source.mRowIndices;
+    const std::vector<ptrdiff_t>& sourceMatrixColPointers = source.mColPointers;
 
     // Get the values and row indices from the target matrix
-    const std::vector<double>& targetMatrixValues = std::ref(target.mValues);
-    const std::vector<ptrdiff_t>& targetMatrixRowIndices = std::ref(target.mRowIndices);
-    const std::vector<ptrdiff_t>& targetMatrixColPointers = std::ref(target.mColPointers);
+    const std::vector<double>& targetMatrixValues = target.mValues;
+    const std::vector<ptrdiff_t>& targetMatrixRowIndices = target.mRowIndices;
+    const std::vector<ptrdiff_t>& targetMatrixColPointers = target.mColPointers;
 
     // Construct the submatrix information for each column
     // std::vector<size_t> marker(sparsityNumRows, -1);
@@ -50,7 +50,7 @@ void SAM(const csc_matrix<>& source, const csc_matrix<>& target, const sparsity_
         // std::cout << "Constructing I and J for column " << j << std::endl;
         // TODO: this is for the sequential implementation
         // TODO: Use a map insted of a vector for marker
-        std::vector<int> marker(sparsityNumRows, -1);
+        std::vector<int> marker(sparsityNumRows, -1); // TODO: Can it be replaced by bit manipulation?
         std::vector<ptrdiff_t> J;
         std::vector<ptrdiff_t> I;
 
@@ -158,6 +158,7 @@ void SAM(const csc_matrix<>& source, const csc_matrix<>& target, const sparsity_
     MM.mNumCols = sparsityNumCols;
     MM.mNumRows = sparsityNumRows;
     MM.mNNZ = sparsityNNZ;
+    // TODO: this is implcit copy. Think about using different approach
     MM.mRowIndices = std::ref(S.mRowIndices);
     MM.mColPointers = std::ref(S.mColPointers);
     MM.mValues = std::move(mapValues);

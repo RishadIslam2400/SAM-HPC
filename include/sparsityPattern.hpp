@@ -7,8 +7,8 @@
 
 // Function to generate a simple sparsity pattern
 // The sparsity pattern is same as the input matrix
-void simple_sparsity_pattern(const csc_matrix<> &A, sparsity_pattern<> &S)
-{
+void simple_sparsity_pattern(const csc_matrix<> &A, sparsity_pattern<> &S) {
+    // TODO: this is implcit copy. Think about using different approach
     S.mRowIndices = std::ref(A.mRowIndices);
     S.mColPointers = std::ref(A.mColPointers);
     S.mNumCols = A.mNumCols;
@@ -23,12 +23,13 @@ void simple_sparsity_pattern(const csc_matrix<> &A, sparsity_pattern<> &S)
 // For better approximation, level 2 neighbars of the sparse matrix is taken (power of 2)
 // Post sparsification, for further optimization
 void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, sparsity_pattern<> &S) {
-    const std::vector<ptrdiff_t>& inputRowIndices = std::ref(A.mRowIndices);
-    const std::vector<ptrdiff_t>& inputColPointers = std::ref(A.mColPointers);
+    const std::vector<ptrdiff_t>& inputRowIndices = A.mRowIndices;
+    const std::vector<ptrdiff_t>& inputColPointers = A.mColPointers;
     const size_t numCols = A.mNumCols;
     const size_t numRows = A.mNumRows;
     const size_t nnz = A.mNNZ;
 
+    // This is already scaled, values guranteed to be absolute
     auto scaledValues = A.diagonalScale();
 
     // Filter the values with the threshold with the input values array
@@ -37,7 +38,7 @@ void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, s
     // TODO: change the type of the sparsity pattern values by templating
     std::vector<ptrdiff_t> sparsityRowIndices;
     std::vector<ptrdiff_t> sparsityColPointers(numCols + 1);
-    sparsityRowIndices.reserve(nnz);
+    sparsityRowIndices.reserve(nnz); // Upper bound on the size of the vector
     sparsityColPointers[0] = 0;
 
     // Keep track of the nnz count per column to update colPointers array
@@ -47,7 +48,7 @@ void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, s
         const ptrdiff_t colStart = inputColPointers[j];
         const ptrdiff_t colEnd = inputColPointers[j + 1];
         for (ptrdiff_t i = colStart; i < colEnd; ++i) {
-            if ((std::abs((*scaledValues)[i]) > thresh) || (inputRowIndices[i] == j)) {
+            if (((*scaledValues)[i] > thresh) || (inputRowIndices[i] == j)) {
                 sparsityRowIndices.push_back(inputRowIndices[i]);
                 // TODO: shrink to fit
                 ++nnzCount;
@@ -58,9 +59,6 @@ void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, s
 
     const size_t sparsityNNZ = sparsityRowIndices.size();
 
-    // TODO: Resize the vectors if too small compared to the input vector
-    // TODO: Matrix matrix multiplication of S for level 2 neighbors
-
     // Construct the sparsity pattern matrix
     S.mNNZ = sparsityNNZ;
     S.mNumCols = numCols;
@@ -68,7 +66,7 @@ void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, s
     S.mRowIndices = std::move(sparsityRowIndices);
     S.mColPointers = std::move(sparsityColPointers);
 
-    S.get_level_2_neighbors();
+    // S.get_level_2_neighbors();
 
     // std::cout << "Number of NNZ: " << S.mNNZ << std::endl;
 }
@@ -77,9 +75,9 @@ void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, s
 // For each column, the threshold is calculated using, thresh = max(A_col) * (1-tau)
 // Matrix entries above the threshold are kept in the sparsity pattern
 void sparsity_pattern_col_thresh(const csc_matrix<> &A, const double tau, sparsity_pattern<> &S) {
-    std::vector<double> inputVals = std::ref(A.mValues);
-    std::vector<ptrdiff_t> inputRowIndices = std::ref(A.mRowIndices);
-    std::vector<ptrdiff_t> inputColPointers = std::ref(A.mColPointers);
+    const std::vector<double>& inputVals = A.mValues;
+    const std::vector<ptrdiff_t>& inputRowIndices = A.mRowIndices;
+    const std::vector<ptrdiff_t>& inputColPointers = A.mColPointers;
     const size_t numCols = A.mNumCols;
     const size_t numRows = A.mNumRows;
     const size_t nnz = A.mNNZ;
@@ -88,7 +86,7 @@ void sparsity_pattern_col_thresh(const csc_matrix<> &A, const double tau, sparsi
     std::vector<double> sparsityValues;
     std::vector<ptrdiff_t> sparsityRowIndices;
     std::vector<ptrdiff_t> sparsityColPointers(numCols + 1);
-    sparsityRowIndices.reserve(nnz);
+    sparsityRowIndices.reserve(nnz); // Upper bound on the size of the vector
     sparsityColPointers[0] = 0;
 
     // Keep track of the nnz count per column to update colPointers array
@@ -117,7 +115,6 @@ void sparsity_pattern_col_thresh(const csc_matrix<> &A, const double tau, sparsi
             // Keep the values greater than the threshold or the diagonal entry
             if (std::abs(inputVals[i]) > colThresh || inputRowIndices[i] == j) {
                 sparsityRowIndices.push_back(inputRowIndices[i]);
-                // TODO: do shrink to fit
                 ++nnzCount;
             }
         }
@@ -137,7 +134,7 @@ void sparsity_pattern_col_thresh(const csc_matrix<> &A, const double tau, sparsi
     S.mRowIndices = std::move(sparsityRowIndices);
     S.mColPointers = std::move(sparsityColPointers);
 
-    S.get_level_2_neighbors();
+    // S.get_level_2_neighbors();
 
     // std::cout << "Number of NNZ: " << S.mNNZ << std::endl;
 }
@@ -155,7 +152,7 @@ void sparsity_pattern_lfil_thresh(const csc_matrix<> &A, const unsigned int lfil
     // Information to construct the sparsity pattern
     std::vector<ptrdiff_t> sparsityRowIndices;
     std::vector<ptrdiff_t> sparsityColPointers(numCols + 1);
-    sparsityRowIndices.reserve(lfil * numCols);
+    sparsityRowIndices.reserve(lfil * numCols); // A reasonable guess on the the size of the vector
     sparsityColPointers[0] = 0;
 
     // Keep track of the nnz count per column to update colPointers array
@@ -175,7 +172,7 @@ void sparsity_pattern_lfil_thresh(const csc_matrix<> &A, const unsigned int lfil
             sparsityColPointers[j + 1] = nnzCount;
         }
         else {
-            // Sort the current column in descendin order to find the lfil largest entries
+            // Sort the current column in descending order to find the lfil largest entries
             // Keep track of the row indices in the sorted column
             // TODO: May be use ranges and views to optmize
             // TODO: Separete the sorting and integrate it with the class definition
@@ -210,19 +207,17 @@ void sparsity_pattern_lfil_thresh(const csc_matrix<> &A, const unsigned int lfil
 
     // Build the rest of the sparsity pattern info
     const size_t sparsityNNZ = sparsityRowIndices.size();
-    const size_t sparsityNumCols = numCols;
-    const size_t sparsityNumRows = numRows;
 
     // TODO: sparse matrix matrix multiplication of S for level 2 neighbors
 
     // Construct the sparsity pattern matrix
     S.mNNZ = sparsityNNZ;
-    S.mNumCols = sparsityNumCols;
-    S.mNumRows = sparsityNumRows;
+    S.mNumCols = numCols;
+    S.mNumRows = numRows;
     S.mRowIndices = std::move(sparsityRowIndices);
     S.mColPointers = std::move(sparsityColPointers);
 
-    S.get_level_2_neighbors();
+    // S.get_level_2_neighbors();
 
     // std::cout << "Number of NNZ: " << S.mNNZ << std::endl;
 }
