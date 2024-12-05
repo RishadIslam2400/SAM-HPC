@@ -145,10 +145,10 @@ void SAM(const csc_matrix<>& source, const csc_matrix<>& target, const sparsity_
 
         // Solve the submatrix using QR factorization with Householder Transformations
         // Pass the arguments by value to avoid modifying the original matrices
-        householderQRSolve(submatrix, rhs, mapColumn, I.size(), J.size());
+        // householderQRSolve(submatrix, rhs, mapColumn, I.size(), J.size());
 
         // QR solver with modified Gram Schmidt -  both are yielding same results
-        // mgsQRSolve(submatrix, rhs, mapColumn, I.size(), J.size());
+        mgsQRSolve(submatrix, rhs, mapColumn, I.size(), J.size());
 
         // mapValues.insert(mapValues.end(), mapColumn.begin(), mapColumn.end());
         for (ptrdiff_t i = colBeg, k = 0; i != colEnd; ++i, ++k) {

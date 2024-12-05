@@ -173,9 +173,9 @@ void mgsQRSolve(std::vector<std::vector<double>>& A, std::vector<double>& rhs, s
     std::vector<double> QTb(colDim, 0.0);
     // Accessing the row in a column major matrix is not effecient (for large matrices)
     // Alternative: Tranpose the matrix before computation. Adds extra computational overhead.
-    for (size_t i = 0; i < colDim; ++i) {
-        for (size_t j = 0; j < rowDim; ++j) {
-            QTb[i] += A[j][i] * rhs[j]; // Dot product of i-th row of Q with b
+    for (size_t i = 0; i < rowDim; ++i) {
+        for (size_t j = 0; j < colDim; ++j) {
+            QTb[j] += A[j][i] * rhs[i]; // Dot product of i-th row of Q with b
         }
     }
 
