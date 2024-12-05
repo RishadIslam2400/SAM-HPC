@@ -21,8 +21,7 @@ void SAM(const csc_matrix<>& source, const csc_matrix<>& target, const sparsity_
     const size_t sparsityNumRows = S.mNumRows;
     const size_t sparsityNNZ = S.mNNZ;
 
-    std::vector<double> mapValues;
-    mapValues.reserve(sparsityNNZ);
+    std::vector<double> mapValues(sparsityNNZ);
 
     // Get the sparsity pattern information
     const std::vector<ptrdiff_t>& sparsityRowIndices = S.mRowIndices;
@@ -151,8 +150,10 @@ void SAM(const csc_matrix<>& source, const csc_matrix<>& target, const sparsity_
         // QR solver with modified Gram Schmidt -  both are yielding same results
         // mgsQRSolve(submatrix, rhs, mapColumn, I.size(), J.size());
 
-        // TODO: Set the values of the map matrix
-        mapValues.insert(mapValues.end(), mapColumn.begin(), mapColumn.end());
+        // mapValues.insert(mapValues.end(), mapColumn.begin(), mapColumn.end());
+        for (ptrdiff_t i = colBeg, k = 0; i != colEnd; ++i, ++k) {
+            mapValues[i] = mapColumn[k];
+        }
     }
 
     MM.mNumCols = sparsityNumCols;
