@@ -67,6 +67,11 @@
         "bitset": "cpp",
         "optional": "cpp",
         "__nullptr": "cpp",
-        "ranges": "cpp"
+        "ranges": "cpp",
+        "any": "cpp",
+        "codecvt": "cpp",
+        "regex": "cpp",
+        "typeindex": "cpp",
+        "variant": "cpp"
     }
 }

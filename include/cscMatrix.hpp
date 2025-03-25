@@ -5,6 +5,9 @@
 #include <numeric>
 #include <memory>
 #include <cassert>
+#include <algorithm>
+#include <cmath>
+#include <chrono>
 
 //Define the macro for assert
 #define ASSERTM(condition, message) \
@@ -25,6 +28,7 @@ struct csc_matrix
     size_t mNumRows;                  // total number of rows
     size_t mNNZ;                      // total number of non-zero elements
 
+
     // Default constructor
     csc_matrix() = default;
 
@@ -33,7 +37,7 @@ struct csc_matrix
     template <class PtrRange, class RowRange, class ValRange>
     csc_matrix(size_t nrows, size_t ncols, const PtrRange &colPointers, const RowRange &rowIndices, const ValRange &values) : mNumRows(nrows), mNumCols(ncols), mNNZ(0), mValues(), mRowIndices(), mColPointers() {
         static_assert(static_cast<ptrdiff_t>(nrows + 1) == std::distance(std::begin(colPointers), std::end(colPointers)), "Column Pointers has wrong size in csc constructor");
-
+        
         mNNZ = colPointers[ncols];
 
         static_assert(static_cast<ptrdiff_t>(mNNZ) == std::distance(std::begin(rowIndices), std::end(rowIndices)), "Row Indices has wrong size in csc constructor");
@@ -220,7 +224,10 @@ struct csc_matrix
     // Diagonal scaling of the matrix
     std::shared_ptr<std::vector<val_type>> diagonalScale() const {
         assert(!mColPointers.empty());
+        // TODO: time this function call
         auto diag = extractDiagonal(true);
+
+        // This is a expensive copy operation so want to keep it out of the benchmark
         std::vector<val_type> scaledValues = mValues;
 
         // TODO: Parallelize
@@ -233,7 +240,7 @@ struct csc_matrix
                 scaledValues[i] *= (*diag)[j];
             }
         }
-
+        
         // Pre multiplying a matrix by a diagonal matrix,
         // [a1]^T = d1 * [a1]^T (multiplying each diagonal element with the corresponding row in the matrix)
         for (ptrdiff_t j = 0; j < static_cast<ptrdiff_t>(mNumCols); ++j) {

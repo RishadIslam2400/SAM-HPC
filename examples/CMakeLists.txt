@@ -5,8 +5,10 @@ target_link_libraries(sam_test PUBLIC mat mx)
 target_link_libraries(sam_test PUBLIC sam_func)
 
 add_executable(sam_test_asan SAM_test.cpp)
-target_link_libraries(sam_test_asan PUBLIC mat mx -fsanitize=address)
+target_link_libraries(sam_test_asan PUBLIC mat mx)
 target_link_libraries(sam_test_asan PUBLIC sam_func)
+target_compile_options(sam_test_asan PUBLIC -fsanitize=address)
+target_link_options(sam_test_asan PUBLIC -fsanitize=address)
 
 add_executable(householderQR_test householderQR_test.cpp)
 target_link_libraries(householderQR_test PUBLIC householderQR -fsanitize=address)

@@ -1,0 +1,17 @@
+project(${CMAKE_PROJECT_NAME})
+
+add_executable(sam_bench sam_bench.cpp)
+target_link_libraries(sam_bench PUBLIC mat mx)
+target_link_libraries(sam_bench PUBLIC sam_func csc_matrix config)
+
+add_executable(csc_matrix_bench csc_matrix_bench.cpp)
+target_link_libraries(csc_matrix_bench PUBLIC mat mx)
+target_link_libraries(csc_matrix_bench PUBLIC csc_matrix config)
+
+add_executable(sparsity_pattern_benchmark sparsity_pattern_benchmark.cpp)
+target_link_libraries(sparsity_pattern_benchmark PUBLIC mat mx)
+target_link_libraries(sparsity_pattern_benchmark PUBLIC csc_matrix sam_func config)
+
+add_executable(sparsity_function_benchmark sparsity_function_bench.cpp)
+target_link_libraries(sparsity_function_benchmark PUBLIC mat mx)
+target_link_libraries(sparsity_function_benchmark PUBLIC csc_matrix sam_func config)
