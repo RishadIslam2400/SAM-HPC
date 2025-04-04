@@ -7,11 +7,13 @@ namespace SparseMatrix
 {
     class InvalidDimensionsException : public std::runtime_error
     {
-        explicit InvalidDimensionsException(const std::string &message) : std::runtime_error(message) {}
+    public:
+        InvalidDimensionsException(const std::string &message) : std::runtime_error(message) {}
     };
 
     class InvalidCoordinatesException : public std::runtime_error
     {
-        explicit InvalidCoordinatesException(const std::string &message) : std::runtime_error(message) {}
+    public:
+        InvalidCoordinatesException(const std::string &message) : std::runtime_error(message) {}
     };
 }

@@ -10,12 +10,15 @@
 #include <vector>
 #include <iostream>
 #include <assert.h>
+#include <concepts>
+#include <type_traits>
 
 #include "SparseMatrixExceptions.hpp"
 
 namespace SparseMatrix
 {
     template <typename T>
+    requires std::is_arithmetic_v<T>
     class CSRMatrix
     {
     public:
@@ -39,6 +42,11 @@ namespace SparseMatrix
         // ============================= GETTERS / SETTERS ========================================================
         int getRowCount() const;
         int getColumnCount() const;
+
+        // Unsafe interfaces - can ruin the structure of CSR matrix
+        const std::vector<T> &getValues();
+        const std::vector<int> &getColIndices();
+        const std::vector<int> &getRowPointers();
 
         // ============================= Values ==========================================================
         T get(int row, int col) const;
@@ -161,11 +169,29 @@ namespace SparseMatrix
     }
 
     template <typename T>
+    inline const std::vector<T> &CSRMatrix<T>::getValues()
+    {
+        return *vals;
+    }
+
+    template <typename T>
+    inline const std::vector<int> &CSRMatrix<T>::getColIndices()
+    {
+        return *col_indices;
+    }
+
+    template <typename T>
+    inline const std::vector<int> &CSRMatrix<T>::getRowPointers()
+    {
+        return *row_pointers;
+    }
+
+    template <typename T>
     T CSRMatrix<T>::get(int row, int col) const
     {
         this->validateCoordinates(row, col);
 
-        int current_col;
+        int current_col{-1};
         for (int pos = (*(this->row_pointers))[row]; pos < (*(this->row_pointers))[row + 1]; ++pos)
         {
             current_col = (*(this->col_indices))[pos];
@@ -189,7 +215,7 @@ namespace SparseMatrix
         this->validateCoordinates(row, col);
 
         int pos = (*(this->row_pointers))[row];
-        int current_col;
+        int current_col{-1};
 
         for (; pos < (*(this->row_pointers))[row + 1]; ++pos)
         {
@@ -224,21 +250,21 @@ namespace SparseMatrix
     template <typename T>
     std::vector<T> CSRMatrix<T>::multiply(const std::vector<T> &x) const
     {
-        assert((this->col_num == static_cast <int>(x.size())) && "Cannot multiply: Matrix column count and vector size do not match.");
+        // assert((this->col_num == static_cast<int>(x.size())) && "Cannot multiply: Matrix column count and vector size do not match.");
 
-        /* if (this->col_num != static_cast<int>(x.size()))
+        if (this->col_num != static_cast<int>(x.size()))
         {
             throw InvalidDimensionsException("Cannot multiply: Matrix column count and vector size do not match.");
-        } */
+        }
 
-        std::vector<T> result(this->col_num, T());
+        std::vector<T> result(this->row_num, T());
 
         if (this->vals != nullptr)
         {
             for (int i = 0; i < this->row_num; ++i)
             {
                 T sum = T();
-                for (int j = (*(this->row_pointers))[i]; i < (*(this->row_pointers))[i + 1]; ++j)
+                for (int j = (*(this->row_pointers))[i]; j < (*(this->row_pointers))[i + 1]; ++j)
                 {
                     sum += (*(this->vals))[j] * x[(*(this->col_indices))[j]];
                 }
@@ -259,12 +285,12 @@ namespace SparseMatrix
     template <typename T>
     CSRMatrix<T> CSRMatrix<T>::multiply(const CSRMatrix<T> &other) const
     {
-        assert((this->col_num == other.row_num) && "Cannot multiply: Left matrix column count and right matrix row count do not match.");
+        // assert((this->col_num == other.row_num) && "Cannot multiply: Left matrix column count and right matrix row count do not match.");
 
-        /* if (this->col_num != other.row_num)
+        if (this->col_num != other.row_num)
         {
             throw InvalidDimensionsException("Cannot multiply: Left matrix column count and right matrix row count do not match.");
-        } */
+        }
 
         CSRMatrix<T> result(this->row_num, other.col_num);
 
@@ -297,7 +323,7 @@ namespace SparseMatrix
     template <typename T>
     CSRMatrix<T> CSRMatrix<T>::add(const CSRMatrix<T> &other) const
     {
-        assert((this->row_num == other.row_num && this->col_num == other.col_num) && "Cannot add: Matrix dimensions do not match.");
+        // assert((this->row_num == other.row_num && this->col_num == other.col_num) && "Cannot add: Matrix dimensions do not match.");
 
         if (this->row_num != other.row_num || this->col_num != other.col_num)
         {
@@ -326,7 +352,12 @@ namespace SparseMatrix
     template <typename T>
     CSRMatrix<T> CSRMatrix<T>::subtract(const CSRMatrix<T> &other) const
     {
-        assert((this->row_num == other.row_num && this->col_num == other.col_num) && "Cannot subtract: Matrix dimensions do not match.");
+        // assert((this->row_num == other.row_num && this->col_num == other.col_num) && "Cannot subtract: Matrix dimensions do not match.");
+
+        if (this->row_num != other.row_num || this->col_num != other.col_num)
+        {
+            throw InvalidDimensionsException("Cannot add: Matrix dimensions do not match.");
+        }
 
         CSRMatrix<T> result(this->row_num, this->col_num);
 
@@ -351,14 +382,18 @@ namespace SparseMatrix
     template <typename T>
     void CSRMatrix<T>::construct(int row_num, int col_num)
     {
-        assert((row_num >= 1 && col_num >= 1) && "Matrix dimensions cannot be zero or negative.");
-        std::cout << "Constructing CSRMatrix with row and column sizes: " << row_num << "x" << col_num << std::endl;
+        // assert((row_num >= 1 && col_num >= 1) && "Matrix dimensions cannot be zero or negative.");
+
+        if (row_num < 1 || col_num < 1)
+        {
+            throw InvalidDimensionsException("Matrix dimensions cannot be zero or negative.");
+        }
 
         this->row_num = row_num;
         this->col_num = col_num;
 
-        this->vals = new std::vector<T>();
-        this->col_indices = new std::vector<int>();
+        this->vals = nullptr;
+        this->col_indices = nullptr;
         this->row_pointers = new std::vector<int>(row_num + 1, 0);
     }
 
@@ -366,10 +401,30 @@ namespace SparseMatrix
     void CSRMatrix<T>::construct(int row_num, int col_num, const std::vector<T> &vals, const std::vector<int> &row_pointers, const std::vector<int> &col_indices)
     {
 
-        assert((row_num >= 1 && col_num >= 1) && "Matrix dimensions cannot be zero or negative.");
-        assert((row_pointers.size() == static_cast<size_t>(row_num + 1)) && "Rows pointers array does not match matrix row dimension.");
-        assert((col_indices.size() == static_cast<size_t>(row_pointers.back())) && "Column indices array does not match nonzero count.");
-        assert((vals.size() == col_indices.size()) && "Values array does not match nonzero count.");
+        // assert((row_num >= 1 && col_num >= 1) && "Matrix dimensions cannot be zero or negative.");
+        // assert((row_pointers.size() == static_cast<size_t>(row_num + 1)) && "Rows pointers array does not match matrix row dimension.");
+        // assert((col_indices.size() == static_cast<size_t>(row_pointers.back())) && "Column indices array does not match nonzero count.");
+        // assert((vals.size() == col_indices.size()) && "Values array does not match nonzero count.");
+
+        if (row_num < 1 || col_num < 1)
+        {
+            throw InvalidDimensionsException("Matrix dimensions cannot be zero or negative.");
+        }
+
+        if (row_pointers.size() != static_cast<size_t>(row_num + 1))
+        {
+            throw InvalidDimensionsException("Rows pointers array does not match matrix row dimension.");
+        }
+
+        if (col_indices.size() != static_cast<size_t>(row_pointers.back()))
+        {
+            throw InvalidDimensionsException("Column indices array does not match nonzero count.");
+        }
+
+        if (vals.size() != col_indices.size())
+        {
+            throw InvalidDimensionsException("Values array does not match nonzero count.");
+        }
 
         this->row_num = row_num;
         this->col_num = col_num;
@@ -396,8 +451,18 @@ namespace SparseMatrix
     template <typename T>
     void CSRMatrix<T>::validateCoordinates(int row, int col) const
     {
-        assert((row >= 0 && row < this->row_num) && "Row index out of bounds.");
-        assert((col >= 0 && col < this->col_num) && "Column index out of bounds.");
+        // assert((row >= 0 && row < this->row_num) && "Row index out of bounds.");
+        // assert((col >= 0 && col < this->col_num) && "Column index out of bounds.");
+
+        if (row < 0 || row >= this->row_num)
+        {
+            throw InvalidCoordinatesException("Row index out of bounds.");
+        }
+
+        if (col < 0 || col >= this->col_num)
+        {
+            throw InvalidCoordinatesException("Column index out of bounds.");
+        }
     }
 
     template <typename T>
@@ -444,7 +509,7 @@ namespace SparseMatrix
 
         for (int i = row; i < this->row_num; ++i)
         {
-            (*(this->row_pointers))[i] += 1;
+            (*(this->row_pointers))[i + 1] += 1;
         }
     }
 
@@ -456,7 +521,7 @@ namespace SparseMatrix
 
         for (int i = row; i < this->row_num; ++i)
         {
-            (*(this->row_pointers))[i] -= 1;
+            (*(this->row_pointers))[i + 1] -= 1;
         }
     }
 
@@ -480,7 +545,7 @@ namespace SparseMatrix
     template <typename T>
     std::ostream &operator<<(std::ostream &os, const CSRMatrix<T> &matrix)
     {
-        for (int i = 0; i <= matrix.row_num; ++i)
+        for (int i = 0; i < matrix.row_num; ++i)
         {
             for (int j = 0; j < matrix.col_num; ++j)
             {

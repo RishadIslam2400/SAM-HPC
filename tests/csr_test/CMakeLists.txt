@@ -5,7 +5,6 @@ add_subdirectory(utils)
 
 add_executable(
     csr_test
-    run_tests.cpp
-    
+    run_tests.cpp   
 )
 target_link_libraries(csr_test PUBLIC csr_test_utils)
