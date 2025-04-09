@@ -2,7 +2,7 @@
 
 cd build
 make clean
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 cd ..
 

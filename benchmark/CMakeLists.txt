@@ -18,4 +18,8 @@ project(${CMAKE_PROJECT_NAME})
 
 add_executable(microbench microbench.cpp)
 target_link_libraries(microbench PUBLIC csc_matrix sam_func config)
-set_target_properties(microbench PROPERTIES COMPILE_FLAGS "-lpthread -O3")
+set_target_properties(microbench PROPERTIES COMPILE_FLAGS "-lpthread")
+
+add_executable(microbench_parallel microbench_parallel.cpp)
+target_link_libraries(microbench_parallel PUBLIC csc_matrix sam_func config)
+set_target_properties(microbench_parallel PROPERTIES COMPILE_FLAGS "-lpthread")

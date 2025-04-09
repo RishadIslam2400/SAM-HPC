@@ -15,3 +15,10 @@ add_subdirectory(include)
 # endif()
 add_subdirectory(examples)
 add_subdirectory(benchmark)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")

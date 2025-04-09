@@ -101,7 +101,7 @@ int main(int argc, char **argv)
     }
 
     // Read the reqired sparse matrices
-    std::cout << "Sequential Benchmark: " << std::endl;
+    std::cout << "Parallel Benchmark: " << std::endl;
     std::cout << "SAM computation time (simple sparsity pattern):" << std::endl;
     for (int i = 1; i <= 50; i += 10)
     {
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 
             // Compute the SAM
             csc_matrix<> map;
-            SAM(test_matrix, target_matrix, sparsity_pattern, map);
+            SAM_std_thread(test_matrix, target_matrix, sparsity_pattern, map, config.threads);
         }
         // Compute average time
         std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
 
         // Compute the SAM
         csc_matrix<> map;
-        SAM(test_matrix, target_matrix, sparsity_pattern, map);
+        SAM_std_thread(test_matrix, target_matrix, sparsity_pattern, map, config.threads);
     }
     // Compute average time
     std::chrono::high_resolution_clock::time_point global_sparsity_pattern_end = std::chrono::high_resolution_clock::now();
@@ -169,7 +169,7 @@ int main(int argc, char **argv)
 
         // Compute the SAM
         csc_matrix<> map;
-        SAM(test_matrix, target_matrix, sparsity_pattern, map);
+        SAM_std_thread(test_matrix, target_matrix, sparsity_pattern, map, config.threads);
     }
     // Compute average time
     std::chrono::high_resolution_clock::time_point column_sparsity_pattern_end = std::chrono::high_resolution_clock::now();
@@ -186,7 +186,7 @@ int main(int argc, char **argv)
 
         // Compute the SAM
         csc_matrix<> map;
-        SAM(test_matrix, target_matrix, sparsity_pattern, map);
+        SAM_std_thread(test_matrix, target_matrix, sparsity_pattern, map, config.threads);
     }
     // Compute average time
     std::chrono::high_resolution_clock::time_point lfil_sparsity_pattern_end = std::chrono::high_resolution_clock::now();
