@@ -1,0 +1,5 @@
+*.o
+build/
+build/*
+data*
+top_opt_matrices_small_csc/
