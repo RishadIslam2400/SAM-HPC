@@ -1,1 +1,0 @@
-/usr/bin/g++ -g CMakeFiles/sam_test.dir/SAM_test.cpp.o -o sam_test   -L/usr/local/MATLAB/R2022b/bin/glnxa64  -Wl,-rpath,/usr/local/MATLAB/R2022b/bin/glnxa64 -lmat -lmx 

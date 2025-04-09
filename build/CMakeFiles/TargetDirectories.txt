@@ -1,9 +1,0 @@
-/home/rishad/SAM-HPC/build/CMakeFiles/test_matio.dir
-/home/rishad/SAM-HPC/build/CMakeFiles/edit_cache.dir
-/home/rishad/SAM-HPC/build/CMakeFiles/rebuild_cache.dir
-/home/rishad/SAM-HPC/build/include/CMakeFiles/sam_func.dir
-/home/rishad/SAM-HPC/build/include/CMakeFiles/edit_cache.dir
-/home/rishad/SAM-HPC/build/include/CMakeFiles/rebuild_cache.dir
-/home/rishad/SAM-HPC/build/examples/CMakeFiles/sam_test.dir
-/home/rishad/SAM-HPC/build/examples/CMakeFiles/edit_cache.dir
-/home/rishad/SAM-HPC/build/examples/CMakeFiles/rebuild_cache.dir
