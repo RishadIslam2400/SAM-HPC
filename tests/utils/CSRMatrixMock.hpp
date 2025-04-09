@@ -13,10 +13,21 @@ template <typename T>
 class CSRMatrixMock : public SparseMatrix::CSRMatrix<T>
 {
 public:
-    CSRMatrixMock(int n) : SparseMatrix::CSRMatrix<T>(n) {}
-    CSRMatrixMock(int rows, int cols) : SparseMatrix::CSRMatrix<T>(rows, cols) {}
-    CSRMatrixMock(int rows, int cols, const std::vector<T> &vals, const std::vector<int> &row_pointers, const std::vector<int> &col_indices)
+    CSRMatrixMock(const size_t rows, const size_t cols, const std::vector<T> &vals,
+                  const std::vector<size_t> &row_pointers, const std::vector<size_t> &col_indices)
         : SparseMatrix::CSRMatrix<T>(rows, cols, vals, row_pointers, col_indices) {}
+    CSRMatrixMock(const size_t rows, const size_t cols, const size_t nnz, const std::vector<T> &vals,
+                  const std::vector<size_t> &row_pointers, const std::vector<size_t> &col_indices)
+        : SparseMatrix::CSRMatrix<T>(rows, cols, nnz, vals, row_pointers, col_indices) {}
+    CSRMatrixMock(const std::vector<T> &vals, const std::vector<size_t> &row_pointers, const std::vector<size_t> &col_indices)
+        : SparseMatrix::CSRMatrix<T>(vals, row_pointers, col_indices) {}
+    CSRMatrixMock(const size_t rows, const size_t cols, const T *vals,
+                  const size_t *row_pointers, const size_t *col_indices)
+        : SparseMatrix::CSRMatrix<T>(rows, cols, vals, row_pointers, col_indices) {}
+    CSRMatrixMock(const size_t rows, const size_t cols, const size_t nnz, const T *vals,
+                  const size_t *row_pointers, const size_t *col_indices)
+        : SparseMatrix::CSRMatrix<T>(rows, cols, nnz, vals, row_pointers, col_indices) {}
+    CSRMatrixMock(const std::vector<std::vector<T>> &matrix) : SparseMatrix::CSRMatrix<T>(matrix) {}
 
     /**
      * Sends internal storage info to given output stream
@@ -27,7 +38,7 @@ public:
     void printInfo(std::ostream &os) const
     {
         os << "rows (" << (this->row_pointers->size() - 1) << "): [";
-        for (std::vector<int>::const_iterator intIt = this->row_pointers->cbegin(); intIt != this->row_pointers->cend(); ++intIt)
+        for (std::vector<size_t>::const_iterator intIt = this->row_pointers->cbegin(); intIt != this->row_pointers->cend(); ++intIt)
         {
             if (intIt > this->row_pointers->cbegin())
             {
@@ -46,7 +57,7 @@ public:
         else
         {
             os << " (" << this->col_indices->size() << "): [";
-            for (std::vector<int>::const_iterator intIt = this->col_indices->cbegin(); intIt != this->col_indices->cend(); ++intIt)
+            for (std::vector<size_t>::const_iterator intIt = this->col_indices->cbegin(); intIt != this->col_indices->cend(); ++intIt)
             {
                 if (intIt > this->col_indices->cbegin())
                 {
@@ -78,31 +89,14 @@ public:
             os << "]" << std::endl;
         }
     }
-
-    static const CSRMatrixMock<T> fromVectors(const std::vector<std::vector<T>>& vec)
-    {
-        const int row_size = static_cast<int>(vec.size());
-        const int col_size = static_cast<int>(vec[0].size());
-        CSRMatrixMock<T> matrix(row_size, col_size);
-
-        for (int i = 0; i < row_size; ++i)
-        {
-            for (int j = 0; j < col_size; ++j)
-            {
-                matrix.set(vec[i][j], i, j);
-            }
-        }
-
-        return matrix;
-    }
 };
 
 template <typename T>
 bool operator==(const SparseMatrix::CSRMatrix<T> &sparse, const std::vector<std::vector<T>> &classical)
 {
-    for (int i = 0; i < static_cast<int>(classical.size()); ++i)
+    for (size_t i = 0; i < classical.size(); ++i)
     {
-        for (int j = 0; j < static_cast<int>(classical[i].size()); ++j)
+        for (size_t j = 0; j < classical[i].size(); ++j)
         {
             if (sparse.get(i, j) != classical[i][j])
                 return false;

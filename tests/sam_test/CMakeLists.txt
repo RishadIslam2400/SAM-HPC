@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.10)
+project(SAM_HPC LANGUAGES CXX)
+
+add_executable(
+    sam_test
+    run_sam_tests.cpp
+)
+target_link_libraries(sam_test PUBLIC csr_matrix sam csr_test_utils)
