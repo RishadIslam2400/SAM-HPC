@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
     double function_times[3] = {0.0, 0.0, 0.0};
     for (int iter = 0; iter < config.iters; iter++) {
         sparsity_pattern<> test_sparsity_pattern;
-        sparsity_pattern_global_thresh(test_matix, 0.001, test_sparsity_pattern, function_times);
+        sparsity_pattern_global_thresh(test_matix, 0.001, test_sparsity_pattern);
     }
 
     std::cout << "Diagonal scaling time: " << function_times[0] / config.iters << " seconds" << std::endl;

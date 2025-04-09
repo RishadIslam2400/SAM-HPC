@@ -23,7 +23,7 @@ void simple_sparsity_pattern(const csc_matrix<> &A, sparsity_pattern<> &S) {
 // Matrix entries less than the global threshold are set to 0
 // For better approximation, level 2 neighbars of the sparse matrix is taken (power of 2)
 // TODO: Post sparsification, for further optimization
-void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, sparsity_pattern<> &S, double* function_times = nullptr) {
+void sparsity_pattern_global_thresh(const csc_matrix<> &A,const double thresh, sparsity_pattern<> &S) {
     // std::chrono::high_resolution_clock::time_point function_start = std::chrono::high_resolution_clock::now();
     const std::vector<ptrdiff_t>& inputRowIndices = A.mRowIndices;
     const std::vector<ptrdiff_t>& inputColPointers = A.mColPointers;

@@ -11,13 +11,13 @@ struct config_t
     std::string name;
 
     // The name of the path to the input file
-    std::string filename;
+    std::string filename = "";
 
     // Number of iterations to run
-    int iters;
+    int iters = 5;
 
     // Number of threads
-    int threads;
+    int threads = 1;
 
     void print() const {
         std::cout << "# name, filename, iters" << std::endl;
