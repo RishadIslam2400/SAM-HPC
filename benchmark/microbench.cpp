@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 
     // Create target matrix
     csc_matrix<> target_matrix;
-    std::string target_filename = "/home/rishad/SAM-HPC/top_opt_matrices_small_csc/matrix_1.txt";
+    std::string target_filename = "/home/mds222/SAM-HPC/top_opt_matrices_small_csc/matrix_1.txt";
     if (!read_mat(target_filename.c_str(), target_matrix))
     {
         std::cerr << "Error reading the sparse matrix!" << std::endl;
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
     std::cout << "SAM computation time (simple sparsity pattern):" << std::endl;
     for (int i = 1; i <= 50; i += 10)
     {
-        std::string filename = "/home/rishad/SAM-HPC/top_opt_matrices_small_csc/matrix_" + std::to_string(i + 1) + ".txt";
+        std::string filename = "/home/mds222/SAM-HPC/top_opt_matrices_small_csc/matrix_" + std::to_string(i + 1) + ".txt";
         csc_matrix<> test_matrix;
         if (!read_mat(filename.c_str(), test_matrix))
         {
@@ -133,7 +133,7 @@ int main(int argc, char **argv)
 
     
     // test all other sparsity patterns for matrix_11
-    std::string filename = "/home/rishad/SAM-HPC/top_opt_matrices_small_csc/matrix_11.txt";
+    std::string filename = "/home/mds222/SAM-HPC/top_opt_matrices_small_csc/matrix_11.txt";
     csc_matrix<> test_matrix;
     if (!read_mat(filename.c_str(), test_matrix))
     {
