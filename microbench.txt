@@ -9,15 +9,18 @@ Matrix 11: 150.709 s
 Matrix 21: 140.421 s
 Matrix 31: 138.702 s
 Matrix 41: 138.818 s
-SAM computation time (global sparsity pattern):
-Matrix 11: 12.8331 s
-Matrix 11: 1.61399 s
-Matrix 11: 1.95579 s
------------Parallel-----------
------------Parallel-----------
------------Parallel-----------
------------Parallel-----------
------------Parallel-----------
+
+SAM computation time
+Matrix 11: 12.8331 s (global sparsity pattern)
+Matrix 11: 1.61399 s (column sparsity pattern)
+Matrix 11: 1.95579 s (lfil sparsity pattern)
+
+Matrix 11:
+simple sparsity pattern nnz: 8483083
+global sparsity pattern nnz: 2717076
+column sparsity pattern nnz: 504182
+lfil sparsity pattern nnz: 661500
+
 -----------Parallel-----------
 # name, filename, iters
 microbenchmark_parallel, /top_opt_matrices_small_csc/, 10, 2
@@ -28,10 +31,13 @@ Matrix 11: 79.0657 s
 Matrix 21: 72.9129 s
 Matrix 31: 71.9483 s
 Matrix 41: 72.0782 s
-SAM computation time (global sparsity pattern):
-Matrix 11: 7.0986 s
-Matrix 11: 0.943352 s
-Matrix 11: 1.19542 s
+
+SAM computation time
+Matrix 11: 7.0986 s (global sparsity pattern)
+Matrix 11: 0.943352 s (column sparsity pattern)
+Matrix 11: 1.19542 s (lfil sparsity pattern)
+
+
 # name, filename, iters
 microbenchmark_parallel, /top_opt_matrices_small_csc/, 10, 4
 Parallel Benchmark: 
@@ -41,10 +47,13 @@ Matrix 11: 40.5101 s
 Matrix 21: 37.0997 s
 Matrix 31: 36.9366 s
 Matrix 41: 37.1196 s
-SAM computation time (global sparsity pattern):
-Matrix 11: 4.0298 s
-Matrix 11: 0.594245 s
-Matrix 11: 0.817835 s
+
+SAM computation time
+Matrix 11: 4.0298 s (global sparsity pattern)
+Matrix 11: 0.594245 s (column sparsity pattern)
+Matrix 11: 0.817835 s (lfil sparsity pattern)
+
+
 # name, filename, iters
 microbenchmark_parallel, /top_opt_matrices_small_csc/, 10, 8
 Parallel Benchmark: 
@@ -54,10 +63,13 @@ Matrix 11: 24.2494 s
 Matrix 21: 22.5198 s
 Matrix 31: 22.41 s
 Matrix 41: 22.3948 s
-SAM computation time (global sparsity pattern):
-Matrix 11: 2.38081 s
-Matrix 11: 0.347384 s
-Matrix 11: 0.58491 s
+
+SAM computation time
+Matrix 11: 2.38081 s (global sparsity pattern)
+Matrix 11: 0.347384 s (column sparsity pattern)
+Matrix 11: 0.58491 s (lfil sparsity pattern)
+
+
 # name, filename, iters
 microbenchmark_parallel, /top_opt_matrices_small_csc/, 10, 16
 Parallel Benchmark: 
@@ -67,10 +79,13 @@ Matrix 11: 13.442 s
 Matrix 21: 12.8944 s
 Matrix 31: 12.8 s
 Matrix 41: 12.8853 s
-SAM computation time (global sparsity pattern):
-Matrix 11: 1.45886 s
-Matrix 11: 0.217427 s
-Matrix 11: 0.450128 s
+
+SAM computation time 
+Matrix 11: 1.45886 s (global sparsity pattern)
+Matrix 11: 0.217427 s (column sparsity pattern)
+Matrix 11: 0.450128 s (lfil sparsity pattern)
+
+
 # name, filename, iters
 microbenchmark_parallel, /top_opt_matrices_small_csc/, 10, 32
 Parallel Benchmark: 
@@ -80,10 +95,12 @@ Matrix 11: 8.22609 s
 Matrix 21: 7.74977 s
 Matrix 31: 7.62722 s
 Matrix 41: 7.72293 s
-SAM computation time (global sparsity pattern):
-Matrix 11: 1.08403 s
-Matrix 11: 0.234038 s
-Matrix 11: 0.471434 s
+
+SAM computation time 
+Matrix 11: 1.08403 s (global sparsity pattern)
+Matrix 11: 0.234038 s (column sparsity pattern)
+Matrix 11: 0.471434 s (lfil sparsity pattern)
+
 # name, filename, iters
 microbenchmark_parallel, /top_opt_matrices_small_csc/, 10, 64
 Parallel Benchmark: 
@@ -93,10 +110,13 @@ Matrix 11: 5.36201 s
 Matrix 21: 4.78507 s
 Matrix 31: 5.10618 s
 Matrix 41: 5.07592 s
-SAM computation time (global sparsity pattern):
-Matrix 11: 0.612904 s
-Matrix 11: 0.105261 s
-Matrix 11: 0.341854 s
+
+SAM computation time 
+Matrix 11: 0.612904 s (global sparsity pattern)
+Matrix 11: 0.105261 s (column sparsity pattern)
+Matrix 11: 0.341854 s (lfil sparsity pattern)
+
+
 # name, filename, iters
 microbenchmark_parallel, /top_opt_matrices_small_csc/, 10, 96
 Parallel Benchmark: 
@@ -106,10 +126,13 @@ Matrix 11: 3.7257 s
 Matrix 21: 3.73217 s
 Matrix 31: 3.80685 s
 Matrix 41: 3.81731 s
-SAM computation time (global sparsity pattern):
-Matrix 11: 0.530549 s
-Matrix 11: 0.0937473 s
-Matrix 11: 0.328203 s
+
+SAM computation time
+Matrix 11: 0.530549 s (global sparsity pattern)
+Matrix 11: 0.0937473 s (column sparsity pattern)
+Matrix 11: 0.328203 s (lfil sparsity pattern)
+
+
 # name, filename, iters
 microbenchmark_parallel, /top_opt_matrices_small_csc/, 10, 128
 Parallel Benchmark: 
@@ -119,7 +142,8 @@ Matrix 11: 3.06469 s
 Matrix 21: 3.0031 s
 Matrix 31: 2.97275 s
 Matrix 41: 2.9242 s
-SAM computation time (global sparsity pattern):
-Matrix 11: 0.483339 s
-Matrix 11: 0.10033 s
-Matrix 11: 0.338026 s
+
+SAM computation time
+Matrix 11: 0.483339 s (global sparsity pattern)
+Matrix 11: 0.10033 s (column sparsity pattern)
+Matrix 11: 0.338026 s (lfil sparsity pattern)

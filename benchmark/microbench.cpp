@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 
     // Create target matrix
     csc_matrix<> target_matrix;
-    std::string target_filename = "/home/mds222/SAM-HPC/top_opt_matrices_small_csc/matrix_1.txt";
+    std::string target_filename = "/home/rishad/SAM-HPC/top_opt_matrices_small_csc/matrix_1.txt";
     if (!read_mat(target_filename.c_str(), target_matrix))
     {
         std::cerr << "Error reading the sparse matrix!" << std::endl;
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
     std::cout << "SAM computation time (simple sparsity pattern):" << std::endl;
     for (int i = 1; i <= 50; i += 10)
     {
-        std::string filename = "/home/mds222/SAM-HPC/top_opt_matrices_small_csc/matrix_" + std::to_string(i + 1) + ".txt";
+        std::string filename = "/home/rishad/SAM-HPC/top_opt_matrices_small_csc/matrix_" + std::to_string(i + 1) + ".txt";
         csc_matrix<> test_matrix;
         if (!read_mat(filename.c_str(), test_matrix))
         {
@@ -133,16 +133,16 @@ int main(int argc, char **argv)
 
     
     // test all other sparsity patterns for matrix_11
-    std::string filename = "/home/mds222/SAM-HPC/top_opt_matrices_small_csc/matrix_11.txt";
+    std::string filename = "/home/rishad/SAM-HPC/top_opt_matrices_small_csc/matrix_11.txt";
     csc_matrix<> test_matrix;
     if (!read_mat(filename.c_str(), test_matrix))
     {
         std::cerr << "Error reading the sparse matrix!" << std::endl;
         return 1;
     }
-    std::cout << "SAM computation time (global sparsity pattern):" << std::endl;
     
     // Run the benchmark for global sparsity pattern
+    std::cout << "SAM computation time (global sparsity pattern):" << std::endl;
     std::cout << "Matrix 11: " << std::flush;
     std::chrono::high_resolution_clock::time_point global_sparsity_pattern_start = std::chrono::high_resolution_clock::now();
     for (int iter = 0; iter < config.iters; iter++)
@@ -160,6 +160,7 @@ int main(int argc, char **argv)
     std::cout << global_sparsity_pattern_elapsed.count() / config.iters << " s" << std::endl;
 
     // Run the benchmark for column sparsity pattern
+    std::cout << "SAM computation time (column sparsity pattern):" << std::endl;
     std::cout << "Matrix 11: " << std::flush;
     std::chrono::high_resolution_clock::time_point column_sparsity_pattern_start = std::chrono::high_resolution_clock::now();
     for (int iter = 0; iter < config.iters; iter++)
@@ -177,6 +178,7 @@ int main(int argc, char **argv)
     std::cout << column_sparsity_pattern_elapsed.count() / config.iters << " s" << std::endl;
 
     // Run the benchmark for lfil sparsity pattern
+    std::cout << "SAM computation time (lfil sparsity pattern):" << std::endl;
     std::cout << "Matrix 11: " << std::flush;
     std::chrono::high_resolution_clock::time_point lfil_sparsity_pattern_start = std::chrono::high_resolution_clock::now();
     for (int iter = 0; iter < config.iters; iter++)
