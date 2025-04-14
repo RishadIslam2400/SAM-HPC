@@ -1,5 +1,8 @@
 #include "CSRMatrix.hpp"
 
+#include <queue>
+#include <functional>
+
 enum class SparsityPatternType
 {
     SIMPLE,
@@ -15,6 +18,7 @@ struct SparsityPatternParams
     size_t fixedNNZ;
 };
 
+// @todo: implement rule of five
 template <typename T>
 class SparsityPattern
 {
@@ -26,11 +30,13 @@ private:
     // ================ Sparsity Pattern Computation ================
     void computeSimplePattern();
     void computeGlobalThresholdPattern(const double globalThreshold);
-    void computeColumnThresholdPattern();
-    void computeFixedNNZPattern();
+    void computeColumnThresholdPattern(const double tau);
+    void computeFixedNNZPattern(const size_t lfil);
 
     // =============== Helper Functions ================
     void diagonalScaling(std::vector<T> &values, const std::vector<T> &diagonal);
+
+    // @todo: Think about usage of SparsityPattern class
 
 public:
     SparsityPattern() = delete;
@@ -84,9 +90,10 @@ void SparsityPattern<T>::computeGlobalThresholdPattern(const double globalThresh
     }
 
     // Calculate prefix sum and get non zero count
-    size_t nonZeroCount = pattern->scanRowSize();
-    pattern->col_indices = new std::vector<size_t>(nonZeroCount);
-    pattern->vals = new std::vector<int>(nonZeroCount, 1);
+    // @todo: include it in the scanRowSize function
+    pattern->nnz = pattern->scanRowSize();
+    pattern->col_indices = new std::vector<size_t>(pattern->nnz);
+    pattern->vals = new std::vector<int>(pattern->nnz, 1);
 
     // Compute the column indices
     for (size_t i = 0; i < originalMatrix->row_num; ++i)
@@ -133,13 +140,108 @@ void SparsityPattern<T>::diagonalScaling(std::vector<T> &values, const std::vect
 }
 
 template <typename T>
-inline void SparsityPattern<T>::computeColumnThresholdPattern()
+inline void SparsityPattern<T>::computeColumnThresholdPattern(const double tau)
 {
+    pattern = new SparseMatrix::CSRMatrix<int>();
+    pattern->row_num = originalMatrix->row_num;
+    pattern->col_num = originalMatrix->col_num;
+    pattern->row_pointers = new std::vector<size_t>(originalMatrix->row_num + 1);
+    std::vector<T> thresholds(originalMatrix->row_num, 0); // store the threshold value for each row
+
+    // Count number of non-zero elements in each row
+    for (size_t i = 0; i < originalMatrix->row_num; ++i)
+    {
+        const size_t start = (*(originalMatrix->row_pointers))[i];
+        const size_t end = (*(originalMatrix->row_pointers))[i + 1];
+        const T maxVal = *(std::max_element(originalMatrix->vals->begin() + start,
+                                            originalMatrix->vals->begin() + end,
+                                            [](const T &a, const T &b)
+                                            { return std::abs(a) < std::abs(b); }));
+        thresholds[i] = (1 - tau) * maxVal;
+        
+        for (size_t j = start; j < end; ++j)
+        {
+            if (std::abs((*(originalMatrix->vals))[j]) > thresholds[i] || (*(originalMatrix->col_indices))[j] == i) 
+            {
+                ++(*(pattern->row_pointers))[i + 1];
+            }
+        }
+    }
+
+    pattern->nnz = pattern->scanRowSize();
+    pattern->col_indices = new std::vector<size_t>(pattern->nnz);
+    pattern->vals = new std::vector<int>(pattern->nnz, 1);
+
+    // Compute the column indices
+    for (size_t i = 0; i < originalMatrix->row_num; ++i)
+    {
+        const size_t start = (*(originalMatrix->row_pointers))[i];
+        const size_t end = (*(originalMatrix->row_pointers))[i + 1];
+        size_t patternColIdx = (*(pattern->row_pointers))[i];
+
+        for (size_t j = start; j < end; ++j)
+        {
+            if (std::abs((*(originalMatrix->vals))[j]) > thresholds[i] || (*(originalMatrix->col_indices))[j] == i)
+            {
+                (*(pattern->col_indices))[patternColIdx] = (*(originalMatrix->col_indices))[j];
+                ++patternColIdx;
+            }
+        }
+    }
 }
 
 template <typename T>
-inline void SparsityPattern<T>::computeFixedNNZPattern()
+inline void SparsityPattern<T>::computeFixedNNZPattern(const size_t lfil)
 {
+    pattern = new SparseMatrix::CSRMatrix<int>();
+    pattern->row_num = originalMatrix->row_num;
+    pattern->col_num = originalMatrix->col_num;
+    pattern->row_pointers = new std::vector<size_t>(originalMatrix->row_num + 1);
+    
+    // Use a priority queue to store the lfil largest elements in each row
+    std::vector<std::priority_queue<std::pair<T, size_t>, std::vector<std::pair<T, size_t>>, std::greater<std::pair<T, size_t>>>> lfilLargestElements(pattern->row_num);
+
+    // Count number of non-zero elements in each row
+    for (size_t i = 0; i < originalMatrix->row_num; ++i)
+    {
+        const size_t rowStart = (*(originalMatrix->row_pointers))[i];
+        const size_t rowEnd = (*(originalMatrix->row_pointers))[i + 1];
+        for (size_t j = rowStart; j < rowEnd; ++j)
+        {
+            if (lfilLargestElements[i].size() < lfil)
+            {
+                lfilLargestElements[i].push(std::pair<T, size_t>(std::abs((*(originalMatrix->vals))[j]), (*(originalMatrix->col_indices))[j]));
+                ++(*(pattern->row_pointers))[i + 1];
+            }
+            else if (lfilLargestElements[i].top().first < std::abs((*(originalMatrix->vals))[j]))
+            {
+                lfilLargestElements[i].pop();
+                lfilLargestElements[i].push(std::pair<T, size_t>(std::abs((*(originalMatrix->vals))[j]), (*(originalMatrix->col_indices))[j]));
+            }
+        }
+    }
+
+    pattern->nnz = pattern->scanRowSize();
+    pattern->col_indices = new std::vector<size_t>(pattern->nnz);
+    pattern->vals = new std::vector<int>(pattern->nnz, 1);
+
+    // Compute the column indices
+    for (size_t i = 0; i < originalMatrix->row_num; ++i)
+    {
+        const size_t rowStart = (*(originalMatrix->row_pointers))[i];
+        const size_t rowEnd = (*(originalMatrix->row_pointers))[i + 1];
+        size_t patternColIdx = (*(pattern->row_pointers))[i];
+
+        for (size_t j = rowStart; j < rowEnd; ++j)
+        {
+            (*(pattern->col_indices))[patternColIdx] = lfilLargestElements[i].top().second;
+            lfilLargestElements[i].pop();
+            ++patternColIdx;
+        }
+    }
+
+    // Sort the column indices in each row
+    pattern->sortRows();
 }
 
 template <typename T>
@@ -163,10 +265,10 @@ void SparsityPattern<T>::computePattern(const SparsityPatternParams &params)
         computeGlobalThresholdPattern(params.globalThreshold);
         break;
     case SparsityPatternType::COLUMN_THRESH:
-        computeColumnThresholdPattern();
+        computeColumnThresholdPattern(params.columnThreshold);
         break;
     case SparsityPatternType::FIXED_NNZ:
-        computeFixedNNZPattern();
+        computeFixedNNZPattern(params.fixedNNZ);
         break;
     default:
         break;
@@ -176,7 +278,7 @@ void SparsityPattern<T>::computePattern(const SparsityPatternParams &params)
 template <typename T>
 inline const SparseMatrix::CSRMatrix<int> *SparsityPattern<T>::getPattern() const
 {
-    assert(pattern != nullptr && "Sparsity pattern not computed.");
+    assert(pattern != nullptr && "Compute the sparsity pattern first.");
     return pattern;
 }
 

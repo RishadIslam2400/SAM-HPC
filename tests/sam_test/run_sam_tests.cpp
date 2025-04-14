@@ -5,5 +5,7 @@ int main()
 {
     testSimpleSparsityPattern();
     testGlobalSparsityPattern();
+    testColumnSparsityPattern();
+    testFixedNNZSparsityPattern();
     return 0;
 }
