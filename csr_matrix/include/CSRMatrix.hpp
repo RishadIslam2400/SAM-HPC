@@ -1,11 +1,4 @@
 #pragma once
-/**
- * This file is part of the SparseMatrix library
- *
- * @license  MIT
- * @author   Petr Kessler (https://kesspess.cz)
- * @link     https://github.com/uestla/Sparse-Matrix
- */
 
 #include <vector>
 #include <iostream>

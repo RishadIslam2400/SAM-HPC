@@ -28,7 +28,7 @@ void testSimpleSparsityPattern()
     SparseMatrix::CSRMatrix<int> m1(3, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
-    SparsityPattern<int> simplePattern(m1, SparsityPatternType::SIMPLE);
+    SparsityPattern<int, SimplePattern> simplePattern(m1, SimplePattern{});
     simplePattern.computePattern();
     const SparseMatrix::CSRMatrix<int>* recievedPattern = simplePattern.getPattern();
 
@@ -65,10 +65,8 @@ void testGlobalSparsityPattern()
     SparseMatrix::CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
-    SparsityPattern<double> globalPattern(m1, SparsityPatternType::GLOBAL_THRESH);
-    SparsityPatternParams params;
-    params.globalThreshold = 0.001;
-    globalPattern.computePattern(params);
+    SparsityPattern<double, GlobalThresholdPattern> globalPattern(m1, GlobalThresholdPattern{0.001});
+    globalPattern.computePattern();
     const SparseMatrix::CSRMatrix<int> *recievedPattern = globalPattern.getPattern();
 
     std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1};
@@ -106,10 +104,8 @@ void testColumnSparsityPattern()
     SparseMatrix::CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
-    SparsityPattern<double> columnPattern(m1, SparsityPatternType::COLUMN_THRESH);
-    SparsityPatternParams params;
-    params.columnThreshold = 0.5;
-    columnPattern.computePattern(params);
+    SparsityPattern<double, ColumnThresholdPattern> columnPattern(m1, ColumnThresholdPattern{0.5});
+    columnPattern.computePattern();
     const SparseMatrix::CSRMatrix<int> *recievedPattern = columnPattern.getPattern();
 
     std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1, 1, 1, 1, 1};
@@ -146,10 +142,8 @@ void testFixedNNZSparsityPattern()
     SparseMatrix::CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
-    SparsityPattern<double> fixedNNZPattern(m1, SparsityPatternType::FIXED_NNZ);
-    SparsityPatternParams params;
-    params.fixedNNZ = 2;
-    fixedNNZPattern.computePattern(params);
+    SparsityPattern<double, FixedNNZPattern> fixedNNZPattern(m1, FixedNNZPattern{2});
+    fixedNNZPattern.computePattern();
     const SparseMatrix::CSRMatrix<int> *recievedPattern = fixedNNZPattern.getPattern();
 
     std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1, 1, 1};
