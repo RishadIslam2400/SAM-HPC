@@ -58,18 +58,20 @@ SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const SparseM
 template <typename T, typename SparsityPatternType>
 void SparseApproximateMap<T, SparsityPatternType>::computeMap()
 {
-    // Initialize the mapping matrix
-    mappingMatrix = new SparseMatrix::CSRMatrix<T>();
-    mappingMatrix->row_num = targetMatrix->row_num;
-    mappingMatrix->col_num = targetMatrix->col_num;
-    mappingMatrix->row_pointers = new std::vector<size_t>(targetMatrix->row_num + 1);
-
     // Get the computed sparsity pattern matrix
     sparsityPattern->computePattern();
     const SparseMatrix::CSRMatrix<int> *pattern = sparsityPattern->getPattern();
 
+    // Initialize the mapping matrix
+    mappingMatrix = new SparseMatrix::CSRMatrix<T>();
+    mappingMatrix->row_num = targetMatrix->row_num;
+    mappingMatrix->col_num = targetMatrix->col_num;
+    mappingMatrix->nnz = pattern->nnz;
+    mappingMatrix->row_pointers = new std::vector<size_t>(*(pattern->row_pointers));
+    mappingMatrix->col_indices = new std::vector<size_t>(*(pattern->col_indices));
+
     std::vector<int> marker(mappingMatrix->col_num, -1);
-    std::vector<size_t> I, J;
+    std::vector<size_t> J;
     std::vector<T> rhs;
     std::vector<std::vector<T>> submatrix;
     for (size_t i = 0; i < mappingMatrix->row_num; ++i)
@@ -77,16 +79,17 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
         // Compute the submatrix indices for each row
         const size_t rowStart = (*(pattern->row_pointers))[i];
         const size_t rowEnd = (*(pattern->row_pointers))[i + 1];
-        I.assign(pattern->col_indices->begin() + rowStart, pattern->col_indices->begin() + rowEnd);
+        size_t iSize = 0;
         J.clear();
 
         for (size_t j = rowStart; j < rowEnd; ++j)
         {
             const size_t colIdx = (*(pattern->col_indices))[j];
+            ++iSize;
 
-            for (size_t colIdxRowStart = (*(sourceMatrix->row_pointers))[colIdx]; colIdxRowStart < (*(sourceMatrix->row_pointers))[colIdx + 1]; ++colIdxRowStart)
+            for (size_t colIdxRowStart = (*(pattern->row_pointers))[colIdx]; colIdxRowStart < (*(pattern->row_pointers))[colIdx + 1]; ++colIdxRowStart)
             {
-                const size_t submatrixColIdx = (*(sourceMatrix->col_indices))[colIdxRowStart];
+                const size_t submatrixColIdx = (*(pattern->col_indices))[colIdxRowStart];
                 if (marker[submatrixColIdx] < 0)
                 {
                     marker[submatrixColIdx] = 1;
@@ -100,18 +103,17 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
         // Compute the RHS vector from the target matrix
         rhs.assign(J.size(), 0);
         size_t targetRowStart = (*(targetMatrix->row_pointers))[i];
-        size_t targetRowEnd = (*(targetMatrix->row_pointers))[i + 1];
+        const size_t targetRowEnd = (*(targetMatrix->row_pointers))[i + 1];
         for (size_t j = 0; j < J.size() && targetRowStart < targetRowEnd;)
         {
             if (J[j] == (*(targetaMatrix->col_indices))[targetRowStart])
             {
                 rhs[j] = (*(targetMatrix->vals))[targetRowStart];
-                marker[J[j]] = static_cast<int>(j);
                 ++targetRowStart;
                 ++j;
                 continue;
             }
-            else if (J[j] < (*(targetMatrix->col_indices))[targetRowStart])
+            else if (J[j] > (*(targetMatrix->col_indices))[targetRowStart])
             {
                 ++targetRowStart;
                 continue;
@@ -120,11 +122,32 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
         }
 
         // Compute the submatrix
-        submatrix.assign(I.size(), std::vector<T>(J.size(), 0));
-        for (size_t j = rowStart; j < rowEnd; ++j)
+        submatrix.assign(iSize, std::vector<T>(J.size()));
+        for (size_t submatrixRowIdx = 0, j = rowStart; j < rowEnd; ++j, ++submatrixRowIdx)
         {
-            
+            const size_t colIdx = (*(pattern->col_indices))[j];
+ 
+            size_t sourceRowStart = (*(sourceMatrix->row_pointers))[I[submatrixRowIdx]];
+            const size_t sourceRowEnd = (*(sourceMatrix->row_pointers))[I[submatrixRowIdx] + 1];
+            for (size_t k = 0; k < J.size() && sourceRowStart < sourceRowEnd;)
+            {
+                if (J[k] == (*(sourceMatrix->col_indices))[sourceRowStart])
+                {
+                    submatrix[submatrixRowIdx][k] = (*(sourceMatrix->vals))[sourceRowStart];
+                    ++sourceRowStart;
+                    ++k;
+                    continue;
+                }
+                else if(I[k] > (*(sourceMatrix->col_indices))[sourceRowStart])
+                {
+                    ++sourceRowStart;
+                    continue;
+                }
+                ++k;
+            }
         }
+
+        // Solve the submatrix
     }
 }
 
