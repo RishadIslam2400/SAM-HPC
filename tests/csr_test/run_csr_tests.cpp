@@ -1,5 +1,4 @@
 #include <iostream>
-#include <chrono>
 
 #include "cases/constructor.cpp"
 #include "cases/addition.cpp"

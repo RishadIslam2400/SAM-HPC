@@ -13,6 +13,7 @@ struct FixedNNZPattern { size_t fixedNNZ; };
 
 // @todo: perform set union between the computed sparsity pattern and the target matrix patterns
 // so that while computing the map we dont skip any non-zero entries from the target matrix
+// @todo: get rid of private
 template <typename T, typename PatternType>
 class SparsityPattern
 {
@@ -56,7 +57,11 @@ public:
 // ================ Constructor/Assignment ================
 template <typename T, typename PatternType>
 SparsityPattern<T, PatternType>::SparsityPattern(const SparseMatrix::CSRMatrix<T> &originalMatrix, const PatternType &type)
-    : originalMatrix(&originalMatrix), type(type), pattern(nullptr) {}
+{
+    this->originalMatrix = &originalMatrix;
+    this->type = type;
+    this->pattern = nullptr;
+}
 
 template <typename T, typename PatternType>
 SparsityPattern<T, PatternType>::SparsityPattern(const SparsityPattern &other)

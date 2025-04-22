@@ -132,3 +132,15 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec)
     os << "]";
     return os;
 }
+
+bool operator==(const std::vector<double> &lhs, const std::vector<double> &rhs)
+{
+    if (lhs.size() != rhs.size())
+        return false;
+    for (size_t i = 0; i < lhs.size(); ++i)
+    {
+        if (std::abs(lhs[i] - rhs[i]) > 1e-7)
+            return false;
+    }
+    return true;
+}
