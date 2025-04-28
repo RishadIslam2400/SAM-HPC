@@ -69,9 +69,9 @@ void testGlobalSparsityPattern()
     globalPattern.computePattern();
     const SparseMatrix::CSRMatrix<int> *recievedPattern = globalPattern.getPattern();
 
-    std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1};
-    std::vector<size_t> patternRowPointersCorrect = {0, 2, 4, 5, 5};
-    std::vector<size_t> patternColIndicesCorrect = {0, 2, 0, 1, 2};
+    std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1, 1};
+    std::vector<size_t> patternRowPointersCorrect = {0, 2, 4, 5, 6};
+    std::vector<size_t> patternColIndicesCorrect = {0, 2, 0, 1, 2, 3};
 
     assertEquals<std::vector<size_t>>(*(recievedPattern->row_pointers), patternRowPointersCorrect, "Incorrect internal row pointers");
     assertEquals<std::vector<size_t>>(*(recievedPattern->col_indices), patternColIndicesCorrect, "Incorrect internal column indices");
@@ -108,9 +108,9 @@ void testColumnSparsityPattern()
     columnPattern.computePattern();
     const SparseMatrix::CSRMatrix<int> *recievedPattern = columnPattern.getPattern();
 
-    std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1, 1, 1, 1, 1};
-    std::vector<size_t> patternRowPointersCorrect = {0, 3, 5, 8, 9};
-    std::vector<size_t> patternColIndicesCorrect = {0, 2, 3, 1, 3, 1, 2, 3, 0};
+    std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    std::vector<size_t> patternRowPointersCorrect = {0, 3, 5, 8, 10};
+    std::vector<size_t> patternColIndicesCorrect = {0, 2, 3, 1, 3, 1, 2, 3, 0, 3};
 
     assertEquals<std::vector<size_t>>(*(recievedPattern->row_pointers), patternRowPointersCorrect, "Incorrect internal row pointers");
     assertEquals<std::vector<size_t>>(*(recievedPattern->col_indices), patternColIndicesCorrect, "Incorrect internal column indices");

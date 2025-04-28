@@ -121,6 +121,7 @@ namespace SparseMatrix
         void insert(size_t index, size_t row, size_t col, T val);
         void remove(size_t index, size_t row);
         size_t scanRowSize();
+        bool isEmpty() const;
 
         // @todo: implement setSize(), setNonzeros(), scale()
     };
@@ -892,6 +893,12 @@ namespace SparseMatrix
         return (*(this->row_pointers))[this->row_num];
     }
 
+    template <typename T>
+    inline bool CSRMatrix<T>::isEmpty() const
+    {
+        return (this->row_pointers == nullptr || this->col_indices == nullptr || this->vals == nullptr);
+    }
+
     // ============================= Friend Functions ==========================================================
     template <typename T>
     bool operator==(const CSRMatrix<T> &lhs, const CSRMatrix<T> &rhs)
@@ -917,17 +924,13 @@ namespace SparseMatrix
         {
             for (size_t j = 0; j < matrix.col_num; ++j)
             {
-                if (j != 0)
+                T val = matrix.get(i, j);
+
+                if (val != T())
                 {
-                    os << " ";
+                    os << "(" << i << ", " << j << "): ";
+                    os << val << "\n";
                 }
-
-                os << matrix.get(i, j);
-            }
-
-            if (i < matrix.row_num - 1)
-            {
-                os << std::endl;
             }
         }
 

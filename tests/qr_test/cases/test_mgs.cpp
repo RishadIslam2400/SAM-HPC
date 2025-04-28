@@ -81,7 +81,7 @@ void testMgsQRSolve5()
     std::vector<double> rhs = {6, 5, 7, 10};
     std::vector<double> x(2);
     std::vector<double> expectedSolution = {3.5, 1.4};
-    mgsQRSolve(A, rhs, x, 4, 2);
+    mgsQRSolve(A, rhs, x, 2, 4);
 
     assertEquals<std::vector<double>>(expectedSolution, x, "Incorrect solution");
     std::cout << "OK" << std::endl;

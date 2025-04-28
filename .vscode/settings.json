@@ -70,6 +70,8 @@
         "ranges": "cpp",
         "span": "cpp",
         "typeindex": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "strstream": "cpp",
+        "valarray": "cpp"
     }
 }

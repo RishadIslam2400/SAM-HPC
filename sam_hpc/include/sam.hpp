@@ -2,6 +2,9 @@
 
 #include "CSRMatrix.hpp"
 #include "sparsityPattern.hpp"
+#include "householderQR.hpp"
+#include "mgsQR.hpp"
+#include "eigenQRSolve.hpp"
 
 template <typename T, typename SparsityPatternType>
 class SparseApproximateMap
@@ -69,9 +72,10 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
     mappingMatrix->nnz = pattern->nnz;
     mappingMatrix->row_pointers = new std::vector<size_t>(*(pattern->row_pointers));
     mappingMatrix->col_indices = new std::vector<size_t>(*(pattern->col_indices));
+    mappingMatrix->vals = new std::vector<T>(mappingMatrix->nnz, 0);
+    std::span<T> x(*(mappingMatrix->vals));
 
     // Start SAM computation
-    std::vector<int> marker(mappingMatrix->col_num, -1);
     std::vector<size_t> J;
     std::vector<T> rhs;
     std::vector<std::vector<T>> submatrix;
@@ -82,6 +86,7 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
         const size_t rowEnd = (*(pattern->row_pointers))[i + 1];
         const size_t iSize = rowEnd - rowStart; // For I
         J.clear();
+        std::vector<int> marker(mappingMatrix->col_num, -1);
 
         for (size_t j = rowStart; j < rowEnd; ++j)
         {
@@ -122,7 +127,7 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
         }
 
         // Compute the submatrix
-        submatrix.assign(J.size(), std::vector<T>(iSize, 0));
+        submatrix.assign(iSize, std::vector<T>(J.size(), 0));
         for (size_t submatrixRowIdx = 0, j = rowStart; j < rowEnd; ++submatrixRowIdx, ++j)
         {
             const size_t colIdx = (*(pattern->col_indices))[j];
@@ -134,7 +139,7 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
                 if (J[submatrixColIdx] == (*(sourceMatrix->col_indices))[sourceRowStart])
                 {
                     // Column major submatrix - striding by row size
-                    submatrix[submatrixColIdx][submatrixRowIdx] = (*(sourceMatrix->vals))[sourceRowStart];
+                    submatrix[submatrixRowIdx][submatrixColIdx] = (*(sourceMatrix->vals))[sourceRowStart];
                     ++sourceRowStart;
                     ++submatrixColIdx;
                     continue;
@@ -149,6 +154,9 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
         }
 
         // Solve the submatrix
+        // mgsQRSolve(submatrix, rhs, x.subspan(rowStart, iSize), iSize, J.size());
+        householderQRSolve(submatrix, rhs, x.subspan(rowStart, iSize), iSize, J.size());
+        // eigenQRSolve(submatrix, rhs, x.subspan(rowStart, iSize), iSize, J.size());
     }
 }
 

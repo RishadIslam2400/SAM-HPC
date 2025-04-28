@@ -5,6 +5,7 @@
 #include <cmath>
 #include <numeric>
 #include <cassert>
+#include <span>
 
 /* ------------------ partialdot_product ------------------ */
 /*  Given two vectors of the same length and an index this function returns
@@ -27,10 +28,9 @@
 double partial_dot_product(const std::vector<double> &x, const std::vector<double> &y, const size_t index)
 {
     assert(x.size() == y.size() && "Vectors must be of the same size.");
-    assert(index < x.size() && "Index out of bounds.");
+    assert(index <= x.size() && "Index out of bounds.");
 
-    return std::transform_reduce(x.begin() + index, x.end(), y.begin() + index, 0.0, std::plus<double>(), [](double a, double b)
-                                 { return a * b; });
+    return std::transform_reduce(x.begin() + index, x.end(), y.begin() + index, 0.0, std::plus<double>(), std::multiplies<double>());
 }
 
 /* ----------------------- scalar_div ----------------------- */
@@ -47,7 +47,6 @@ double partial_dot_product(const std::vector<double> &x, const std::vector<doubl
 
 void scalar_div(std::vector<double> &x, const double r)
 {
-    assert(r != 0.0 && "Division by zero.");
     std::transform(x.begin(), x.end(), x.begin(), [&r](double a) { return a / r; });
 }
 
@@ -77,8 +76,8 @@ void scalar_div(std::vector<double> &x, const double r)
     O(length) and requires O(1) additional memory.          */
 double subdot_product(const std::vector<double> &x, const std::vector<double> &y, const size_t index)
 {
-    assert(index < y.size() && "Index out of bounds.");
-    assert(index + y.size() == x.size() && "Vectors must be of the same size.");
+    assert(index <= x.size() && "Index out of bounds.");
+    assert(index + y.size() <= x.size() && "Vectors must be of the same size.");
 
     return std::transform_reduce(x.begin() + index, x.end(), y.begin(), 0.0, std::plus<double>(), [](double a, double b)
                                  { return a * b; });
@@ -105,8 +104,8 @@ double subdot_product(const std::vector<double> &x, const std::vector<double> &y
     O(length) and requires O(1) additional memory.               */
 void partialscalar_sub(const std::vector<double> &x, const double r, const size_t index, std::vector<double> &y)
 {
-    assert(index < x.size() && "Index out of bounds.");
-    assert(index + x.size() == y.size() && "Vectors must be of the same size.");
+    assert(index <= y.size() && "Index out of bounds.");
+    assert(index + x.size() <= y.size() && "Vectors must be of the same size.");
 
     std::transform(x.begin(), x.end(), y.begin() + index, y.begin() + index, [r](double a, double b)
                    { return b - r * a; });
@@ -142,6 +141,7 @@ void householderQR(std::vector<std::vector<double>> &a, std::vector<std::vector<
     {
         // Set v[i] equal to subvector a[i][i:m]
         v[i].assign(a[i].begin() + i, a[i].end());
+        
 
         /* vpartdot = ||v[i]||^2 - v[i][0] * v[i][0]; since vpartdot
            is unaffected by the change in v[i][0], storing this value
@@ -166,16 +166,21 @@ void householderQR(std::vector<std::vector<double>> &a, std::vector<std::vector<
         for (size_t j = i; j < n; ++j)
         {
             // Set a[j][i:m] = a[j][i:m] - 2 * v[i] * (v[i]^T * a[j][i:m])
-            double vTa = subdot_product(v[i], a[j], i);
-            vTa *= 2;
+            double vTa = subdot_product(a[j], v[i], i);
+            vTa *= 2.0;
             partialscalar_sub(v[i], vTa, i, a[j]);
         }
     }
 }
 
-void householderQRSolve(std::vector<std::vector<double>> &A, std::vector<double> &rhs, std::vector<double> &x, const size_t rows, const size_t cols)
+void householderQRSolve(std::vector<std::vector<double>> &A, std::vector<double> &rhs, std::span<double> x, const size_t cols, const size_t rows)
 {
-    assert((A.size() == cols && A[0].size() == rows) && "Matrix A must be of size cols x rows.");
+    if (rows == 0 || cols == 0)
+    {
+        return;
+    }
+
+    assert((A.size() == cols && A[0].size() == rows) && "Matrix A must be of size rows x cols.");
     assert(x.size() == cols && "Vector X must be equal to the number of columns.");
     assert(rhs.size() == rows && "RHS vector must be equal to the number of rows.");
     // @todo: handle underdetermined systems

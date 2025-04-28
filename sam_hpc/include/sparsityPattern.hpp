@@ -6,10 +6,21 @@
 #include <functional>
 #include <type_traits>
 
-struct SimplePattern{};
-struct GlobalThresholdPattern { double globalThreshold; };
-struct ColumnThresholdPattern { double columnThreshold; };
-struct FixedNNZPattern { size_t fixedNNZ; };
+struct SimplePattern
+{
+};
+struct GlobalThresholdPattern
+{
+    double globalThreshold;
+};
+struct ColumnThresholdPattern
+{
+    double columnThreshold;
+};
+struct FixedNNZPattern
+{
+    size_t fixedNNZ;
+};
 
 // @todo: perform set union between the computed sparsity pattern and the target matrix patterns
 // so that while computing the map we dont skip any non-zero entries from the target matrix
@@ -33,7 +44,7 @@ private:
 
 public:
     SparsityPattern() = delete;
-    SparsityPattern(const SparseMatrix::CSRMatrix<T> &originalMatrix, const PatternType& type);
+    SparsityPattern(const SparseMatrix::CSRMatrix<T> &originalMatrix, const PatternType &type);
     SparsityPattern(const SparsityPattern &other);
     SparsityPattern &operator=(const SparsityPattern &other);
     SparsityPattern(const SparsityPattern &&other);
@@ -179,6 +190,9 @@ void SparsityPattern<T, PatternType>::computeGlobalThresholdPattern(const double
     pattern->col_num = originalMatrix->col_num;
     pattern->row_pointers = new std::vector<size_t>(originalMatrix->row_num + 1);
 
+    // keep track of the diagonal elements
+    std::vector<bool> hasDiagonal(originalMatrix->row_num, false);
+
     // Count number of non-zero elements in each row
     for (size_t i = 0; i < originalMatrix->row_num; ++i)
     {
@@ -186,10 +200,21 @@ void SparsityPattern<T, PatternType>::computeGlobalThresholdPattern(const double
         const size_t end = (*(originalMatrix->row_pointers))[i + 1];
         for (size_t j = start; j < end; ++j)
         {
-            if (std::abs(scaledValues[j]) > globalThreshold)
+            const size_t colIdx = (*(originalMatrix->col_indices))[j];
+            if (colIdx == i)
+            {
+                hasDiagonal[i] = true;
+                ++(*(pattern->row_pointers))[i + 1];
+            }
+            else if (std::abs(scaledValues[j]) > globalThreshold)
             {
                 ++(*(pattern->row_pointers))[i + 1];
             }
+        }
+
+        if (!hasDiagonal[i])
+        {
+            ++(*(pattern->row_pointers))[i + 1];
         }
     }
 
@@ -208,11 +233,26 @@ void SparsityPattern<T, PatternType>::computeGlobalThresholdPattern(const double
 
         for (size_t j = start; j < end; ++j)
         {
-            if ((std::abs(scaledValues[j]) > globalThreshold))
+            const size_t colIdx = (*(originalMatrix->col_indices))[j];
+
+            if (!hasDiagonal[i] && colIdx > i)
+            {
+                (*(pattern->col_indices))[patternColIdx] = (*(originalMatrix->col_indices))[j];
+                ++patternColIdx;
+                hasDiagonal[i] = true;
+            }
+
+            if ((std::abs(scaledValues[j]) > globalThreshold) || colIdx == i)
             {
                 (*(pattern->col_indices))[patternColIdx] = (*(originalMatrix->col_indices))[j];
                 ++patternColIdx;
             }
+        }
+
+        if (!hasDiagonal[i])
+        {
+            (*(pattern->col_indices))[patternColIdx] = i;
+            ++patternColIdx;
         }
     }
 }
@@ -251,6 +291,7 @@ void SparsityPattern<T, PatternType>::computeColumnThresholdPattern(const double
     pattern->col_num = originalMatrix->col_num;
     pattern->row_pointers = new std::vector<size_t>(originalMatrix->row_num + 1);
     std::vector<T> thresholds(originalMatrix->row_num, 0); // store the threshold value for each row
+    std::vector<bool> hasDiagonal(originalMatrix->row_num, false); // keep track of the diagonal elements
 
     // Count number of non-zero elements in each row
     for (size_t i = 0; i < originalMatrix->row_num; ++i)
@@ -265,10 +306,22 @@ void SparsityPattern<T, PatternType>::computeColumnThresholdPattern(const double
 
         for (size_t j = start; j < end; ++j)
         {
-            if (std::abs((*(originalMatrix->vals))[j]) > thresholds[i] || (*(originalMatrix->col_indices))[j] == i)
+            const size_t colIdx = (*(originalMatrix->col_indices))[j];
+
+            if (colIdx == i)
+            {
+                hasDiagonal[i] = true;
+                ++(*(pattern->row_pointers))[i + 1];
+            }
+            else if (std::abs((*(originalMatrix->vals))[j]) > thresholds[i])
             {
                 ++(*(pattern->row_pointers))[i + 1];
             }
+        }
+
+        if (!hasDiagonal[i])
+        {
+            ++(*(pattern->row_pointers))[i + 1];
         }
     }
 
@@ -285,11 +338,26 @@ void SparsityPattern<T, PatternType>::computeColumnThresholdPattern(const double
 
         for (size_t j = start; j < end; ++j)
         {
-            if (std::abs((*(originalMatrix->vals))[j]) > thresholds[i] || (*(originalMatrix->col_indices))[j] == i)
+            const size_t colIdx = (*(originalMatrix->col_indices))[j];
+
+            if (!hasDiagonal[i] && colIdx > i)
+            {
+                (*(pattern->col_indices))[patternColIdx] = (*(originalMatrix->col_indices))[j];
+                ++patternColIdx;
+                hasDiagonal[i] = true;
+            }
+
+            if (std::abs((*(originalMatrix->vals))[j]) > thresholds[i] || colIdx == i)
             {
                 (*(pattern->col_indices))[patternColIdx] = (*(originalMatrix->col_indices))[j];
                 ++patternColIdx;
             }
+        }
+
+        if (!hasDiagonal[i])
+        {
+            (*(pattern->col_indices))[patternColIdx] = i;
+            ++patternColIdx;
         }
     }
 }

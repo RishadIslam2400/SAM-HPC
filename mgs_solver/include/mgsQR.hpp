@@ -5,6 +5,7 @@
 #include <cmath>
 #include <numeric>
 #include <cassert>
+#include <span>
 
 /* ----------------------- gramSchmidt ----------------------- */
 /*  Given a matrix A of dimension m by n, this algorithm
@@ -88,10 +89,15 @@ void gramSchmidt(std::vector<std::vector<double>> &a, std::vector<std::vector<do
     }
 }
 
-template <typename T>
-void mgsQRSolve(std::vector<std::vector<T>> &A, std::vector<T> &rhs, std::vector<T> &x, const size_t rows, const size_t cols)
+
+void mgsQRSolve(std::vector<std::vector<double>> &A, std::vector<double> &rhs, std::span<double> x, const size_t cols, const size_t rows)
 {
-    assert((A.size() == cols && A[0].size() == rows) && "Matrix A must be of size cols x rows.");
+    if (rows == 0 || cols == 0)
+    {
+        return;
+    }
+    
+    assert((A.size() == cols && A[0].size() == rows) && "Matrix A must be of size rows x cols.");
     assert(x.size() == cols && "Vector X must be equal to the number of columns.");
     assert(rhs.size() == rows && "RHS vector must be equal to the number of rows.");
     // @todo: handle underdetermined systems
@@ -124,6 +130,6 @@ void mgsQRSolve(std::vector<std::vector<T>> &A, std::vector<T> &rhs, std::vector
             x[i] -= R[j][i] * x[j];
         }
 
-        x[i] /= (R[i][i] + 1e-15); // Avoid division by zero
+        x[i] /= R[i][i]; // Avoid division by zero
     }
 }
