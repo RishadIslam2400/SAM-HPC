@@ -29,10 +29,10 @@ int main(int argc, char** argv)
         testAdditionFail2();
         testAdditionFail3();
         testAddition();
-        // testMultiplicationFail1();
-        // testMultiplicationFail2();
+        testMultiplicationFail1();
+        testMultiplicationFail2();
         testVectorMultiplication();
-        // testMatrixMultiplication();
+        testMatrixMultiplication();
         testOutput();
         testSubtractionFail1();
         testSubtractionFail2();

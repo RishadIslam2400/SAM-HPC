@@ -6,7 +6,7 @@ void testReadMat1()
 {
     std::cout << "Matrix reader 1..." << std::flush;
     std::string filename = "/home/rishad/SAM-HPC/tests/sam_test/testMatrix.txt";
-    SparseMatrix::CSRMatrix<double> testMatrix;
+    CSRMatrix<double> testMatrix;
 
     // Read the matrix from the file
     if (!read_mat(filename.c_str(), &testMatrix))
@@ -34,7 +34,7 @@ void testReadMat2()
 {
     std::cout << "Matrix reader 2..." << std::flush;
     std::string filename = "/home/rishad/SAM-HPC/tests/sam_test/testMatrix.txt";
-    SparseMatrix::CSRMatrix<double> testMatrix = read_mat<double>(filename.c_str());
+    CSRMatrix<double> testMatrix = read_mat<double>(filename.c_str());
     if (testMatrix.isEmpty())
     {
         throw FailureException("Failed to read matrix from file");

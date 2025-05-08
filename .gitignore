@@ -2,4 +2,5 @@
 build/
 build/*
 data*
-top_opt_matrices_small_csc
+top_opt*
+cd2d*

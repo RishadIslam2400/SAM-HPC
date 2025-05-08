@@ -16,7 +16,7 @@ void _multiplicationFail1()
     std::vector<size_t> rowPointersA = {0, 2, 4, 6};
     std::vector<size_t> colIndicesA = {1, 3, 0, 1, 1, 2};
     std::vector<int> valsA = {2, 1, 1, 3, 7, 4};
-    SparseMatrix::CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA);
+    CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA);
     std::vector<int> x(3, 1);
     A.multiply(x);
 }
@@ -44,12 +44,12 @@ void _multiplicationFail2()
     std::vector<size_t> rowPointersA = {0, 2, 4, 6};
     std::vector<size_t> colIndicesA = {1, 3, 0, 1, 1, 2};
     std::vector<int> valsA = {2, 1, 1, 3, 7, 4};
-    SparseMatrix::CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA);
+    CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA);
 
     std::vector<size_t> rowPointersB = {0, 3, 4, 6, 9, 13};
     std::vector<size_t> colIndicesB = {0, 1, 3, 1, 2, 4, 0, 1, 2, 0, 1, 4, 5};
     std::vector<int> valsB = {6, 7, 2, 1, 2, 4, 7, 3, 2, 1, 1, 3, 4};
-    SparseMatrix::CSRMatrix<int> B(5, 6, valsB, rowPointersB, colIndicesB);
+    CSRMatrix<int> B(5, 6, valsB, rowPointersB, colIndicesB);
 
     A.multiply(B);
 }
@@ -109,13 +109,13 @@ void testMatrixMultiplication()
         std::vector<std::vector<int>> manualResult = multiplyMatrices<int>(classicMatrixA, classicMatrixB);
 
         // method
-        assertEquals<SparseMatrix::CSRMatrix<int>, std::vector<std::vector<int>>>(
+        assertEquals<CSRMatrix<int>, std::vector<std::vector<int>>>(
             *sparseMatrixA.multiply(sparseMatrixB),
             manualResult,
             "Incorrect matrix-matrix multiplication result");
 
         // operator
-        assertEquals<SparseMatrix::CSRMatrix<int>, std::vector<std::vector<int>>>(
+        assertEquals<CSRMatrix<int>, std::vector<std::vector<int>>>(
             *(sparseMatrixA * sparseMatrixB),
             manualResult,
             "Incorrect matrix-matrix multiplication result (operator *)");

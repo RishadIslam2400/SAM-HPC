@@ -1,6 +1,8 @@
 #pragma once
 
 #include "CSRMatrix.hpp"
+#include "extendPattern.hpp"
+#include "helpers.hpp"
 
 #include <queue>
 #include <functional>
@@ -22,6 +24,11 @@ struct FixedNNZPattern
     size_t fixedNNZ;
 };
 
+struct combinedThresholdPattern
+{
+    double thresh;
+};
+
 // @todo: perform set union between the computed sparsity pattern and the target matrix patterns
 // so that while computing the map we dont skip any non-zero entries from the target matrix
 // @todo: get rid of private
@@ -29,22 +36,25 @@ template <typename T, typename PatternType>
 class SparsityPattern
 {
 private:
-    SparseMatrix::CSRMatrix<int> *pattern;
-    const SparseMatrix::CSRMatrix<T> *originalMatrix;
+    CSRMatrix<int> *pattern;
+    const CSRMatrix<T> *originalMatrix;
     PatternType type;
+    int level;
 
     // ================ Sparsity Pattern Computation ================
     void computeSimplePattern();
     void computeGlobalThresholdPattern(const double globalThreshold);
     void computeColumnThresholdPattern(const double tau);
     void computeFixedNNZPattern(const size_t lfil);
+    void computeCombinedPattern(const double thresh);
 
     // =============== Helper Functions ================
     void diagonalScaling(std::vector<T> &values, const std::vector<T> &diagonal);
 
 public:
     SparsityPattern() = delete;
-    SparsityPattern(const SparseMatrix::CSRMatrix<T> &originalMatrix, const PatternType &type);
+    SparsityPattern(const CSRMatrix<T> &originalMatrix, const PatternType &type);
+    SparsityPattern(const CSRMatrix<T> &originalMatrix, const PatternType &type, const int level);
     SparsityPattern(const SparsityPattern &other);
     SparsityPattern &operator=(const SparsityPattern &other);
     SparsityPattern(const SparsityPattern &&other);
@@ -60,18 +70,28 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const SparsityPattern<X, Type> &p);
 
     void computePattern();
-    const SparseMatrix::CSRMatrix<int> *getPattern() const;
+    const CSRMatrix<int> *getPattern() const;
 
     ~SparsityPattern();
 };
 
 // ================ Constructor/Assignment ================
 template <typename T, typename PatternType>
-SparsityPattern<T, PatternType>::SparsityPattern(const SparseMatrix::CSRMatrix<T> &originalMatrix, const PatternType &type)
+SparsityPattern<T, PatternType>::SparsityPattern(const CSRMatrix<T> &originalMatrix, const PatternType &type)
 {
     this->originalMatrix = &originalMatrix;
     this->type = type;
     this->pattern = nullptr;
+    this->level = 2;
+}
+
+template <typename T, typename PatternType>
+SparsityPattern<T, PatternType>::SparsityPattern(const CSRMatrix<T> &originalMatrix, const PatternType &type, const int level)
+{
+    this->originalMatrix = &originalMatrix;
+    this->type = type;
+    this->pattern = nullptr;
+    this->level = level;
 }
 
 template <typename T, typename PatternType>
@@ -79,8 +99,9 @@ SparsityPattern<T, PatternType>::SparsityPattern(const SparsityPattern &other)
 {
     originalMatrix = other.originalMatrix;
     type = other.type;
+    level = other.level;
     if (other.pattern != nullptr)
-        pattern = new SparseMatrix::CSRMatrix<int>(*other.pattern);
+        pattern = new CSRMatrix<int>(*other.pattern);
     else
         pattern = nullptr;
 }
@@ -92,9 +113,10 @@ SparsityPattern<T, PatternType> &SparsityPattern<T, PatternType>::operator=(cons
     {
         originalMatrix = other.originalMatrix;
         type = other.type;
+        level = other.level;
         delete pattern; // Free existing pattern
         if (other.pattern != nullptr)
-            pattern = new SparseMatrix::CSRMatrix<int>(*other.pattern);
+            pattern = new CSRMatrix<int>(*other.pattern);
         else
             pattern = nullptr;
     }
@@ -106,6 +128,7 @@ SparsityPattern<T, PatternType>::SparsityPattern(const SparsityPattern &&other)
 {
     originalMatrix = other.originalMatrix;
     type = other.type;
+    level = other.level;
     pattern = other.pattern;
 
     // Set the moved-from object to nullptr
@@ -119,6 +142,7 @@ SparsityPattern<T, PatternType> &SparsityPattern<T, PatternType>::operator=(cons
     {
         originalMatrix = other.originalMatrix;
         type = other.type;
+        level = other.level;
 
         delete pattern; // Free existing pattern
         pattern = other.pattern;
@@ -146,12 +170,14 @@ void SparsityPattern<T, PatternType>::computePattern()
         computeColumnThresholdPattern(type.columnThreshold);
     else if constexpr (std::is_same_v<PatternType, FixedNNZPattern>)
         computeFixedNNZPattern(type.fixedNNZ);
+    else if constexpr (std::is_same_v<PatternType, combinedThresholdPattern>)
+        computeCombinedPattern(type.thresh);
     else
         static_assert("Unsupported pattern type");
 }
 
 template <typename T, typename PatternType>
-inline const SparseMatrix::CSRMatrix<int> *SparsityPattern<T, PatternType>::getPattern() const
+inline const CSRMatrix<int> *SparsityPattern<T, PatternType>::getPattern() const
 {
     assert(pattern != nullptr && "Compute the sparsity pattern first.");
     return pattern;
@@ -167,7 +193,7 @@ template <typename T, typename PatternType>
 void SparsityPattern<T, PatternType>::computeSimplePattern()
 {
     std::vector<int> patternValues(originalMatrix->nnz, 1);
-    pattern = new SparseMatrix::CSRMatrix<int>(originalMatrix->row_num,
+    pattern = new CSRMatrix<int>(originalMatrix->row_num,
                                                originalMatrix->col_num,
                                                patternValues,
                                                *originalMatrix->row_pointers,
@@ -177,7 +203,7 @@ void SparsityPattern<T, PatternType>::computeSimplePattern()
 template <typename T, typename PatternType>
 void SparsityPattern<T, PatternType>::computeGlobalThresholdPattern(const double globalThreshold)
 {
-    const std::shared_ptr<std::vector<T>> diagonal = originalMatrix->diagonal(DiagonalOperation::AbsInvSqrt);
+    const std::shared_ptr<std::vector<T>> diagonal = originalMatrix->diagonal(true);
 
     // Copying the input values for diaonal scaling
     std::vector<T> scaledValues = *(originalMatrix->vals);
@@ -185,7 +211,7 @@ void SparsityPattern<T, PatternType>::computeGlobalThresholdPattern(const double
     diagonalScaling(scaledValues, *diagonal);
 
     // Create the sparsity pattern
-    pattern = new SparseMatrix::CSRMatrix<int>();
+    pattern = new CSRMatrix<int>();
     pattern->row_num = originalMatrix->row_num;
     pattern->col_num = originalMatrix->col_num;
     pattern->row_pointers = new std::vector<size_t>(originalMatrix->row_num + 1);
@@ -229,7 +255,7 @@ void SparsityPattern<T, PatternType>::computeGlobalThresholdPattern(const double
     {
         const size_t start = (*(originalMatrix->row_pointers))[i];
         const size_t end = (*(originalMatrix->row_pointers))[i + 1];
-        size_t patternColIdx = (*(pattern->row_pointers))[i];
+        auto patternColIdx = pattern->col_indices->begin() + (*(pattern->row_pointers))[i];
 
         for (size_t j = start; j < end; ++j)
         {
@@ -237,24 +263,23 @@ void SparsityPattern<T, PatternType>::computeGlobalThresholdPattern(const double
 
             if (!hasDiagonal[i] && colIdx > i)
             {
-                (*(pattern->col_indices))[patternColIdx] = (*(originalMatrix->col_indices))[j];
-                ++patternColIdx;
+                *patternColIdx++ = i;
                 hasDiagonal[i] = true;
             }
 
             if ((std::abs(scaledValues[j]) > globalThreshold) || colIdx == i)
             {
-                (*(pattern->col_indices))[patternColIdx] = (*(originalMatrix->col_indices))[j];
-                ++patternColIdx;
+                *patternColIdx++ = (*(originalMatrix->col_indices))[j];
             }
         }
 
         if (!hasDiagonal[i])
         {
-            (*(pattern->col_indices))[patternColIdx] = i;
-            ++patternColIdx;
+            *patternColIdx++ = i;
         }
     }
+    
+    extend_pattern(*pattern, this->level);
 }
 
 // @todo: two loops can be done in parallel
@@ -286,7 +311,7 @@ void SparsityPattern<T, PatternType>::diagonalScaling(std::vector<T> &values, co
 template <typename T, typename PatternType>
 void SparsityPattern<T, PatternType>::computeColumnThresholdPattern(const double tau)
 {
-    pattern = new SparseMatrix::CSRMatrix<int>();
+    pattern = new CSRMatrix<int>();
     pattern->row_num = originalMatrix->row_num;
     pattern->col_num = originalMatrix->col_num;
     pattern->row_pointers = new std::vector<size_t>(originalMatrix->row_num + 1);
@@ -342,7 +367,7 @@ void SparsityPattern<T, PatternType>::computeColumnThresholdPattern(const double
 
             if (!hasDiagonal[i] && colIdx > i)
             {
-                (*(pattern->col_indices))[patternColIdx] = (*(originalMatrix->col_indices))[j];
+                (*(pattern->col_indices))[patternColIdx] = i;
                 ++patternColIdx;
                 hasDiagonal[i] = true;
             }
@@ -360,12 +385,14 @@ void SparsityPattern<T, PatternType>::computeColumnThresholdPattern(const double
             ++patternColIdx;
         }
     }
+
+    extend_pattern(*pattern, this->level);
 }
 
 template <typename T, typename PatternType>
 void SparsityPattern<T, PatternType>::computeFixedNNZPattern(const size_t lfil)
 {
-    pattern = new SparseMatrix::CSRMatrix<int>();
+    pattern = new CSRMatrix<int>();
     pattern->row_num = originalMatrix->row_num;
     pattern->col_num = originalMatrix->col_num;
     pattern->row_pointers = new std::vector<size_t>(originalMatrix->row_num + 1);
@@ -414,6 +441,14 @@ void SparsityPattern<T, PatternType>::computeFixedNNZPattern(const size_t lfil)
 
     // Sort the column indices in each row
     pattern->sortRows();
+}
+
+template <typename T, typename PatternType>
+void SparsityPattern<T, PatternType>::computeCombinedPattern(const double thresh)
+{
+    // Perform diagonal scaling
+    // compute global threshold from local thresholds
+    // filter rows with threshold values
 }
 
 template <typename X, typename PatternType>

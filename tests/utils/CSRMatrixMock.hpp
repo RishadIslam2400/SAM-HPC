@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "CSRMatrix.hpp"
+#include "spgemm.hpp"
 
 /**
  * This class is used only for testing purposes
@@ -10,24 +11,24 @@
  * @internal
  */
 template <typename T>
-class CSRMatrixMock : public SparseMatrix::CSRMatrix<T>
+class CSRMatrixMock : public CSRMatrix<T>
 {
 public:
     CSRMatrixMock(const size_t rows, const size_t cols, const std::vector<T> &vals,
                   const std::vector<size_t> &row_pointers, const std::vector<size_t> &col_indices)
-        : SparseMatrix::CSRMatrix<T>(rows, cols, vals, row_pointers, col_indices) {}
+        : CSRMatrix<T>(rows, cols, vals, row_pointers, col_indices) {}
     CSRMatrixMock(const size_t rows, const size_t cols, const size_t nnz, const std::vector<T> &vals,
                   const std::vector<size_t> &row_pointers, const std::vector<size_t> &col_indices)
-        : SparseMatrix::CSRMatrix<T>(rows, cols, nnz, vals, row_pointers, col_indices) {}
+        : CSRMatrix<T>(rows, cols, nnz, vals, row_pointers, col_indices) {}
     CSRMatrixMock(const std::vector<T> &vals, const std::vector<size_t> &row_pointers, const std::vector<size_t> &col_indices)
-        : SparseMatrix::CSRMatrix<T>(vals, row_pointers, col_indices) {}
+        : CSRMatrix<T>(vals, row_pointers, col_indices) {}
     CSRMatrixMock(const size_t rows, const size_t cols, const T *vals,
                   const size_t *row_pointers, const size_t *col_indices)
-        : SparseMatrix::CSRMatrix<T>(rows, cols, vals, row_pointers, col_indices) {}
+        : CSRMatrix<T>(rows, cols, vals, row_pointers, col_indices) {}
     CSRMatrixMock(const size_t rows, const size_t cols, const size_t nnz, const T *vals,
                   const size_t *row_pointers, const size_t *col_indices)
-        : SparseMatrix::CSRMatrix<T>(rows, cols, nnz, vals, row_pointers, col_indices) {}
-    CSRMatrixMock(const std::vector<std::vector<T>> &matrix) : SparseMatrix::CSRMatrix<T>(matrix) {}
+        : CSRMatrix<T>(rows, cols, nnz, vals, row_pointers, col_indices) {}
+    CSRMatrixMock(const std::vector<std::vector<T>> &matrix) : CSRMatrix<T>(matrix) {}
 
     /**
      * Sends internal storage info to given output stream
@@ -92,7 +93,7 @@ public:
 };
 
 template <typename T>
-bool operator==(const SparseMatrix::CSRMatrix<T> &sparse, const std::vector<std::vector<T>> &classical)
+bool operator==(const CSRMatrix<T> &sparse, const std::vector<std::vector<T>> &classical)
 {
     for (size_t i = 0; i < classical.size(); ++i)
     {

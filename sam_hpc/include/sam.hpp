@@ -6,20 +6,22 @@
 #include "mgsQR.hpp"
 #include "eigenQRSolve.hpp"
 
+// @todo: add post filtration
+
 template <typename T, typename SparsityPatternType>
 class SparseApproximateMap
 {
 private:
-    const SparseMatrix::CSRMatrix<T> *targetMatrix;
-    const SparseMatrix::CSRMatrix<T> *sourceMatrix;
-    SparseMatrix::CSRMatrix<T> *mappingMatrix;
+    const CSRMatrix<T> *targetMatrix;
+    const CSRMatrix<T> *sourceMatrix;
+    CSRMatrix<T> *mappingMatrix;
     SparsityPattern<T, SparsityPatternType> *sparsityPattern;
 
     // Helper functions
     
 public:
-    SparseApproximateMap(const SparseMatrix::CSRMatrix<T> &targetMatrix, const SparseMatrix::CSRMatrix<T> &sourceMatrix, const SparsityPattern<T, SparsityPatternType> &pattern);
-    SparseApproximateMap(const SparseMatrix::CSRMatrix<T> &targetMatrix, const SparseMatrix::CSRMatrix<T> &sourceMatrix, const SparsityPatternType &patternType);
+    SparseApproximateMap(const CSRMatrix<T> &targetMatrix, const CSRMatrix<T> &sourceMatrix, const SparsityPattern<T, SparsityPatternType> &pattern);
+    SparseApproximateMap(const CSRMatrix<T> &targetMatrix, const CSRMatrix<T> &sourceMatrix, const SparsityPatternType &patternType);
 
     SparseApproximateMap() = delete;
     SparseApproximateMap(const SparseApproximateMap &other) = delete;
@@ -28,15 +30,15 @@ public:
     SparseApproximateMap &operator=(SparseApproximateMap &&other) = delete;
 
     void computeMap();
-    const SparseMatrix::CSRMatrix<T> *getMap() const;
-    const SparseMatrix::CSRMatrix<int> *getPattern() const;
+    const CSRMatrix<T> *getMap() const;
+    const CSRMatrix<int> *getPattern() const;
 
     ~SparseApproximateMap();
 };
 
 template <typename T, typename SparsityPatternType>
-SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const SparseMatrix::CSRMatrix<T> &targetMatrix,
-                                                                   const SparseMatrix::CSRMatrix<T> &sourceMatrix,
+SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const CSRMatrix<T> &targetMatrix,
+                                                                   const CSRMatrix<T> &sourceMatrix,
                                                                    const SparsityPattern<T, SparsityPatternType> &pattern)
 {
     assert((targetMatrix.row_num == sourceMatrix.row_num && targetMatrix.col_num == sourceMatrix.col_num) && "Target and source matrices must have the same dimensions.");
@@ -48,7 +50,7 @@ SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const SparseM
 }
 
 template <typename T, typename SparsityPatternType>
-SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const SparseMatrix::CSRMatrix<T> &targetMatrix, const SparseMatrix::CSRMatrix<T> &sourceMatrix, const SparsityPatternType &patternType)
+SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const CSRMatrix<T> &targetMatrix, const CSRMatrix<T> &sourceMatrix, const SparsityPatternType &patternType)
 {
     assert((targetMatrix.row_num == sourceMatrix.row_num && targetMatrix.col_num == sourceMatrix.col_num) && "Target and source matrices must have the same dimensions.");
     assert((targetMatrix.row_num > 0 && targetMatrix.col_num > 0) && "Target and source matrices must have non-zero dimensions.");
@@ -63,10 +65,10 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
 {
     // Get the computed sparsity pattern matrix
     sparsityPattern->computePattern();
-    const SparseMatrix::CSRMatrix<int> *pattern = sparsityPattern->getPattern();
+    const CSRMatrix<int> *pattern = sparsityPattern->getPattern();
 
     // Initialize the mapping matrix
-    mappingMatrix = new SparseMatrix::CSRMatrix<T>();
+    mappingMatrix = new CSRMatrix<T>();
     mappingMatrix->row_num = targetMatrix->row_num;
     mappingMatrix->col_num = targetMatrix->col_num;
     mappingMatrix->nnz = pattern->nnz;
@@ -76,7 +78,7 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
     std::span<T> x(*(mappingMatrix->vals));
 
     // Start SAM computation
-    std::vector<size_t> J;
+    std::vector<size_t> I, J;
     std::vector<T> rhs;
     std::vector<std::vector<T>> submatrix;
     for (size_t i = 0; i < mappingMatrix->row_num; ++i)
@@ -84,7 +86,7 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
         // Compute the submatrix indices for each row
         const size_t rowStart = (*(pattern->row_pointers))[i];
         const size_t rowEnd = (*(pattern->row_pointers))[i + 1];
-        const size_t iSize = rowEnd - rowStart; // For I
+        I.assign((*(pattern->col_indices)).begin() + rowStart, (*(pattern->col_indices)).begin() + rowEnd);
         J.clear();
         std::vector<int> marker(mappingMatrix->col_num, -1);
 
@@ -127,7 +129,7 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
         }
 
         // Compute the submatrix
-        submatrix.assign(iSize, std::vector<T>(J.size(), 0));
+        submatrix.assign(I.size(), std::vector<T>(J.size(), 0));
         for (size_t submatrixRowIdx = 0, j = rowStart; j < rowEnd; ++submatrixRowIdx, ++j)
         {
             const size_t colIdx = (*(pattern->col_indices))[j];
@@ -155,20 +157,20 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
 
         // Solve the submatrix
         // mgsQRSolve(submatrix, rhs, x.subspan(rowStart, iSize), iSize, J.size());
-        householderQRSolve(submatrix, rhs, x.subspan(rowStart, iSize), iSize, J.size());
+        householderQRSolve(submatrix, rhs, x.subspan(rowStart, I.size()), I.size(), J.size());
         // eigenQRSolve(submatrix, rhs, x.subspan(rowStart, iSize), iSize, J.size());
     }
 }
 
 template <typename T, typename SparsityPatternType>
-const SparseMatrix::CSRMatrix<T> *SparseApproximateMap<T, SparsityPatternType>::getMap() const
+const CSRMatrix<T> *SparseApproximateMap<T, SparsityPatternType>::getMap() const
 {
     assert(mappingMatrix != nullptr && "Compute the mapping matrix first.");
     return mappingMatrix;
 }
 
 template <typename T, typename SparsityPatternType>
-const SparseMatrix::CSRMatrix<int> *SparseApproximateMap<T, SparsityPatternType>::getPattern() const
+const CSRMatrix<int> *SparseApproximateMap<T, SparsityPatternType>::getPattern() const
 {
     assert(sparsityPattern != nullptr && "Compute the sparsity pattern first.");
     return sparsityPattern->getPattern();

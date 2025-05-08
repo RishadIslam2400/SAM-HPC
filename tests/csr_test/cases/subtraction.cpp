@@ -17,12 +17,12 @@ void _subtractionFail1()
     std::vector<size_t> rowPointersA = {0, 2, 4, 6};
     std::vector<size_t> colIndicesA = {1, 3, 0, 1, 1, 2};
     std::vector<int> valsA = {2, 1, 1, 3, 7, 4};
-    SparseMatrix::CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA);
+    CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA);
 
     std::vector<size_t> rowPointersB = {0, 2, 3, 4, 8};
     std::vector<size_t> colIndicesB = {0, 1, 1, 2, 0, 1, 2};
     std::vector<int> valsB = {6, 7, 1, 2, 7, 3, 2};
-    SparseMatrix::CSRMatrix<int> B(4, 3, valsB, rowPointersB, colIndicesB);
+    CSRMatrix<int> B(4, 3, valsB, rowPointersB, colIndicesB);
 
     A.subtract(B);
 }
@@ -49,12 +49,12 @@ void _subtractionFail2()
     std::vector<size_t> rowPointersA = {0, 2, 4, 6};
     std::vector<size_t> colIndicesA = {1, 3, 0, 1, 1, 2};
     std::vector<int> valsA = {2, 1, 1, 3, 7, 4};
-    SparseMatrix::CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA);
+    CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA);
 
     std::vector<size_t> rowPointersB = {0, 3, 4, 5, 9};
     std::vector<size_t> colIndicesB = {0, 1, 2, 1, 2, 0, 1, 2, 3};
     std::vector<int> valsB = {6, 7, 7, 1, 2, 7, 3, 2, 2};
-    SparseMatrix::CSRMatrix<int> B(4, 4, valsB, rowPointersB, colIndicesB);
+    CSRMatrix<int> B(4, 4, valsB, rowPointersB, colIndicesB);
 
     A.subtract(B);
 }
@@ -81,12 +81,12 @@ void _subtractionFail3()
     std::vector<size_t> rowPointersA = {0, 2, 4, 6};
     std::vector<size_t> colIndicesA = {1, 3, 0, 1, 1, 2};
     std::vector<int> valsA = {2, 1, 1, 3, 7, 4};
-    SparseMatrix::CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA);
+    CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA);
 
     std::vector<size_t> rowPointersB = {0, 3, 4, 5, 9};
     std::vector<size_t> colIndicesB = {0, 1, 2, 1, 2, 0, 1, 2, 3};
     std::vector<int> valsB = {6, 7, 7, 1, 2, 7, 3, 2, 2};
-    SparseMatrix::CSRMatrix<int> B(4, 5, valsB, rowPointersB, colIndicesB);
+    CSRMatrix<int> B(4, 5, valsB, rowPointersB, colIndicesB);
 
     A.subtract(B);
 }
@@ -118,13 +118,13 @@ void testSubtraction()
         std::vector<std::vector<int>> manualResult = subtractMatrices<int>(classicMatrixA, classicMatrixB);
 
         // method
-        assertEquals<SparseMatrix::CSRMatrix<int>, std::vector<std::vector<int>>>(
+        assertEquals<CSRMatrix<int>, std::vector<std::vector<int>>>(
             *sparseMatrixA.subtract(sparseMatrixB),
             manualResult,
             "incorrect matrices subtraction");
 
         // operator
-        assertEquals<SparseMatrix::CSRMatrix<int>, std::vector<std::vector<int>>>(
+        assertEquals<CSRMatrix<int>, std::vector<std::vector<int>>>(
             *(sparseMatrixA - sparseMatrixB),
             manualResult,
             "incorrect matrices subtraction (+ operator)");

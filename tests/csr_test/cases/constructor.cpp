@@ -16,7 +16,7 @@ void _constructorFail1()
     std::vector<size_t> rowPointersA = {0, 2, 4, 6};
     std::vector<size_t> colIndicesA = {1, 3, 0, 1, 1, 2};
     std::vector<int> valsA = {2, 1, 1, 3, 7, 4};
-    SparseMatrix::CSRMatrix<int> A(0, 0, valsA, rowPointersA, colIndicesA); // size zero
+    CSRMatrix<int> A(0, 0, valsA, rowPointersA, colIndicesA); // size zero
 }
 
 void testConstructorFail1()
@@ -41,7 +41,7 @@ void _constructorFail2()
     std::vector<size_t> rowPointersA = {0, 2, 4, 6, 8};
     std::vector<size_t> colIndicesA = {1, 3, 0, 1, 1, 2};
     std::vector<int> valsA = {2, 1, 1, 3, 7, 4};
-    SparseMatrix::CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA); // row pointers out of bounds
+    CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA); // row pointers out of bounds
 }
 
 void testConstructorFail2()
@@ -66,7 +66,7 @@ void _constructorFail3()
     std::vector<size_t> rowPointersA = {0, 2, 4, 6};
     std::vector<size_t> colIndicesA = {1, 3, 0, 1, 1, 2, 1};
     std::vector<int> valsA = {2, 1, 1, 3, 7, 4};
-    SparseMatrix::CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA); // column indices out of bounds
+    CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA); // column indices out of bounds
 }
 
 void testConstructorFail3()
@@ -91,7 +91,7 @@ void _constructorFail4()
     std::vector<size_t> rowPointersA = {0, 2, 4, 6};
     std::vector<size_t> colIndicesA = {1, 3, 0, 1, 1, 2};
     std::vector<int> valsA = {2, 1, 1, 3, 7, 4, 10};
-    SparseMatrix::CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA); // values out of bounds
+    CSRMatrix<int> A(3, 4, valsA, rowPointersA, colIndicesA); // values out of bounds
 }
 
 void testConstructorFail4()
@@ -117,7 +117,7 @@ void _constructorFail5()
     std::vector<size_t> rowPointers1 = {0, 3, 5, 10};
     std::vector<size_t> colIndices1 = {0, 2, 3, 0, 1, 2, 3};
     std::vector<int> vals1 = {1, 4, 5, 2, -1, 3, 2};
-    SparseMatrix::CSRMatrix<int> m1(3, 4, vals1, rowPointers1, colIndices1); // non zero count does not match
+    CSRMatrix<int> m1(3, 4, vals1, rowPointers1, colIndices1); // non zero count does not match
 }
 
 void testConstructorFail5()
@@ -143,7 +143,7 @@ void _constructorFail6()
     std::vector<size_t> rowPointers1 = {0, 3, 5, 7};
     std::vector<size_t> colIndices1 = {0, 2, 3, 0, 1, 2, 3};
     std::vector<int> vals1 = {1, 4, 5, 2, -1, 3, 2};
-    SparseMatrix::CSRMatrix<int> m1(3, 4, 10, vals1, rowPointers1, colIndices1); // nnz does not match
+    CSRMatrix<int> m1(3, 4, 10, vals1, rowPointers1, colIndices1); // nnz does not match
 }
 
 void testConstructorFail6()
@@ -169,7 +169,7 @@ void _constructorFail7()
     std::vector<size_t> rowPointers1 = {0, 3, 5, 7};
     std::vector<size_t> colIndices1 = {0, 2, 3, 0, 1, 2, 3, 8};
     std::vector<int> vals1 = {1, 4, 5, 2, -1, 3};
-    SparseMatrix::CSRMatrix<int> m1(vals1, rowPointers1, colIndices1); // column indices out of bounds
+    CSRMatrix<int> m1(vals1, rowPointers1, colIndices1); // column indices out of bounds
 }
 
 void testConstructorFail7()
@@ -195,7 +195,7 @@ void _constructorFail8()
     std::vector<size_t> rowPointers1 = {0, 3, 5, 7};
     std::vector<size_t> colIndices1 = {0, 2, 3, 0, 1, 2, 3};
     std::vector<int> vals1 = {1, 4, 5, 2, -1, 3};
-    SparseMatrix::CSRMatrix<int> m1(vals1, rowPointers1, colIndices1); // values does not match nnz count
+    CSRMatrix<int> m1(vals1, rowPointers1, colIndices1); // values does not match nnz count
 }
 
 void testConstructorFail8()
@@ -210,7 +210,7 @@ void _constructorFail9()
     size_t* rowPointers1 = nullptr;
     size_t* colIndices1 = nullptr;
     int* vals1 = nullptr;
-    SparseMatrix::CSRMatrix<int> m1(3, 4, vals1, rowPointers1, colIndices1); // passing null pointers
+    CSRMatrix<int> m1(3, 4, vals1, rowPointers1, colIndices1); // passing null pointers
 }
 
 void testConstructorFail9()

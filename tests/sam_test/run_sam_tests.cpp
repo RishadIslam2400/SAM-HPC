@@ -7,7 +7,8 @@
 int main()
 {
     testSimpleSparsityPattern();
-    testGlobalSparsityPattern();
+    testGlobalSparsityPattern1();
+    testGlobalSparsityPattern2();
     testColumnSparsityPattern();
     testFixedNNZSparsityPattern();
     testSamConstructor1();
@@ -21,5 +22,6 @@ int main()
     testCD2D2();
     testCD2D3();
     testCD2D4();
+    // testTopOpt1();
     return 0;
 }

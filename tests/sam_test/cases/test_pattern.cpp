@@ -25,12 +25,12 @@ void testSimpleSparsityPattern()
     std::vector<size_t> rowPointers1 = {0, 3, 5, 7};
     std::vector<size_t> colIndices1 = {0, 2, 3, 0, 1, 2, 3};
     std::vector<int> vals1 = {1, 4, 5, 2, -1, 3, 2};
-    SparseMatrix::CSRMatrix<int> m1(3, 4, vals1, rowPointers1, colIndices1);
+    CSRMatrix<int> m1(3, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
     SparsityPattern<int, SimplePattern> simplePattern(m1, SimplePattern{});
     simplePattern.computePattern();
-    const SparseMatrix::CSRMatrix<int>* recievedPattern = simplePattern.getPattern();
+    const CSRMatrix<int>* recievedPattern = simplePattern.getPattern();
 
     std::vector<int> patternValuesCorrect(7, 1);
 
@@ -41,9 +41,9 @@ void testSimpleSparsityPattern()
     std::cout << "OK" << std::endl;
 }
 
-void testGlobalSparsityPattern()
+void testGlobalSparsityPattern1()
 {
-    std::cout << "Global sparsity pattern..." << std::flush;
+    std::cout << "Global sparsity pattern 1..." << std::flush;
 
     /*
         "Standard" matrix
@@ -62,20 +62,59 @@ void testGlobalSparsityPattern()
     std::vector<size_t> rowPointers1 = {0, 3, 5, 7, 9};
     std::vector<size_t> colIndices1 = {0, 2, 3, 0, 1, 2, 3, 0, 2};
     std::vector<double> vals1 = {1, 4, 5, 2, -1, 3, 2, 7, 2};
-    SparseMatrix::CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
+    CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
     SparsityPattern<double, GlobalThresholdPattern> globalPattern(m1, GlobalThresholdPattern{0.001});
     globalPattern.computePattern();
-    const SparseMatrix::CSRMatrix<int> *recievedPattern = globalPattern.getPattern();
+    const CSRMatrix<int> *recievedPattern = globalPattern.getPattern();
 
-    std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1, 1};
-    std::vector<size_t> patternRowPointersCorrect = {0, 2, 4, 5, 6};
-    std::vector<size_t> patternColIndicesCorrect = {0, 2, 0, 1, 2, 3};
+    std::vector<int> patternValuesCorrect(13, 1);
+    std::vector<size_t> patternRowPointersCorrect = {0, 3, 7, 10, 13};
+    std::vector<size_t> patternColIndicesCorrect = {0, 2, 3, 0, 1, 2, 3, 0, 2, 3, 0, 2, 3};
 
     assertEquals<std::vector<size_t>>(*(recievedPattern->row_pointers), patternRowPointersCorrect, "Incorrect internal row pointers");
     assertEquals<std::vector<size_t>>(*(recievedPattern->col_indices), patternColIndicesCorrect, "Incorrect internal column indices");
     assertEquals<std::vector<int>>(*(recievedPattern->vals), patternValuesCorrect, "Incorrect internal values"); 
+
+    std::cout << "OK" << std::endl;
+}
+
+void testGlobalSparsityPattern2()
+{
+    std::cout << "Global sparsity pattern 2..." << std::flush;
+
+    /*
+        "Standard" matrix
+        [ 1  0 4 5 ]
+        [ 2 -1 0 0 ]
+        [ 0  0 3 2 ]
+        [ 7  0 2 0 ]
+
+        should be stored as
+        rows:    [ 0, 3, 5, 7, 9 ]
+        columns: [ 0, 2, 3, 0, 1, 2, 3, 0, 2 ]
+        values:  [ 1, 4, 5, 2, -1, 3, 2, 7, 2 ]
+    */
+
+    // Generate the matrix
+    std::vector<size_t> rowPointers1 = {0, 3, 5, 7, 9};
+    std::vector<size_t> colIndices1 = {0, 2, 3, 0, 1, 2, 3, 0, 2};
+    std::vector<double> vals1 = {1, 4, 5, 2, -1, 3, 2, 7, 2};
+    CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
+
+    // Generate the sparsity pattern
+    SparsityPattern<double, GlobalThresholdPattern> globalPattern(m1, GlobalThresholdPattern{4.00});
+    globalPattern.computePattern();
+    const CSRMatrix<int> *recievedPattern = globalPattern.getPattern();
+
+    std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1, 1};
+    std::vector<size_t> patternRowPointersCorrect = {0, 2, 3, 4, 6};
+    std::vector<size_t> patternColIndicesCorrect = {0, 3, 1, 2, 0, 3};
+
+    assertEquals<std::vector<size_t>>(*(recievedPattern->row_pointers), patternRowPointersCorrect, "Incorrect internal row pointers");
+    assertEquals<std::vector<size_t>>(*(recievedPattern->col_indices), patternColIndicesCorrect, "Incorrect internal column indices");
+    assertEquals<std::vector<int>>(*(recievedPattern->vals), patternValuesCorrect, "Incorrect internal values");
 
     std::cout << "OK" << std::endl;
 }
@@ -101,16 +140,16 @@ void testColumnSparsityPattern()
     std::vector<size_t> rowPointers1 = {0, 3, 6, 9, 10};
     std::vector<size_t> colIndices1 = {0, 2, 3, 0, 1, 3, 1, 2, 3, 0};
     std::vector<double> vals1 = {1, 4, 5, 2, -1, 8, 2, 3, 2, 7};
-    SparseMatrix::CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
+    CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
     SparsityPattern<double, ColumnThresholdPattern> columnPattern(m1, ColumnThresholdPattern{0.5});
     columnPattern.computePattern();
-    const SparseMatrix::CSRMatrix<int> *recievedPattern = columnPattern.getPattern();
+    const CSRMatrix<int> *recievedPattern = columnPattern.getPattern();
 
-    std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    std::vector<size_t> patternRowPointersCorrect = {0, 3, 5, 8, 10};
-    std::vector<size_t> patternColIndicesCorrect = {0, 2, 3, 1, 3, 1, 2, 3, 0, 3};
+    std::vector<int> patternValuesCorrect(14, 1);
+    std::vector<size_t> patternRowPointersCorrect = {0, 4, 7, 11, 14};
+    std::vector<size_t> patternColIndicesCorrect = {0, 1, 2, 3, 0, 1, 3, 0, 1, 2, 3, 0, 2, 3};
 
     assertEquals<std::vector<size_t>>(*(recievedPattern->row_pointers), patternRowPointersCorrect, "Incorrect internal row pointers");
     assertEquals<std::vector<size_t>>(*(recievedPattern->col_indices), patternColIndicesCorrect, "Incorrect internal column indices");
@@ -139,12 +178,12 @@ void testFixedNNZSparsityPattern()
     std::vector<size_t> rowPointers1 = {0, 3, 6, 9, 10};
     std::vector<size_t> colIndices1 = {0, 2, 3, 0, 1, 3, 1, 2, 3, 0};
     std::vector<double> vals1 = {1, 4, 5, 2, -1, 8, 2, 3, 2, 7};
-    SparseMatrix::CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
+    CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
     SparsityPattern<double, FixedNNZPattern> fixedNNZPattern(m1, FixedNNZPattern{2});
     fixedNNZPattern.computePattern();
-    const SparseMatrix::CSRMatrix<int> *recievedPattern = fixedNNZPattern.getPattern();
+    const CSRMatrix<int> *recievedPattern = fixedNNZPattern.getPattern();
 
     std::vector<int> patternValuesCorrect = {1, 1, 1, 1, 1, 1, 1};
     std::vector<size_t> patternRowPointersCorrect = {0, 2, 4, 6, 7};
