@@ -11,14 +11,9 @@
 #include <cmath>
 #include <span>
 #include <thread>
-#include <functional>
 #include <execution>
 
-#include "SparseMatrixExceptions.hpp"
-
-// GLobal thread variable for parallelization
-int num_threads = 8;
-constexpr bool SEQUENTIAL = false;
+#include "launchThreads.hpp"
 
 template <typename T>
     requires std::is_arithmetic_v<T>
@@ -114,8 +109,6 @@ public:
     void destruct();
     void deepCopy(const CSRMatrix<T> &other);
     void shallowCopy(CSRMatrix<T> &&other);
-    void validateCoordinates(size_t row, size_t col) const;
-    void validateCoordinates(size_t row) const;
     void insert(size_t index, size_t row, size_t col, T val);
     void remove(size_t index, size_t row);
     size_t scanRowSize();
@@ -123,25 +116,12 @@ public:
 };
 
 // ============================= Constructors/Assignment/Destructor ==========================================================
-
 template <typename T>
 CSRMatrix<T>::CSRMatrix(size_t rows, size_t cols, const std::vector<T> &vals, const std::vector<size_t> &row_pointers, const std::vector<size_t> &col_indices) {
-    // assert((rows >= 1 && cols >= 1) && "Matrix dimensions cannot be zero.");
-    // assert((row_pointers.size() == rows + 1) && "Rows pointers array does not match matrix row dimension.");
-    // assert((col_indices.size() == row_pointers.back()) && "Column indices array does not match nonzero count.");
-    // assert((vals.size() == col_indices.size()) && "Values array does not match nonzero count.");
-
-    if (rows < 1 || cols < 1)
-        throw InvalidDimensionsException("Matrix dimensions cannot be zero.");
-
-    if (row_pointers.size() != (rows + 1))
-        throw InvalidDimensionsException("Rows pointers array does not match matrix row dimension.");
-
-    if (col_indices.size() != row_pointers.back())
-        throw InvalidDimensionsException("Column indices array does not match nonzero count.");
-
-    if (vals.size() != col_indices.size())
-        throw InvalidDimensionsException("Values array does not match nonzero count.");
+    assert((rows >= 1 && cols >= 1) && "Matrix dimensions cannot be zero.");
+    assert((row_pointers.size() == rows + 1) && "Rows pointers array does not match matrix row dimension.");
+    assert((col_indices.size() == row_pointers.back()) && "Column indices array does not match nonzero count.");
+    assert((vals.size() == col_indices.size()) && "Values array does not match nonzero count.");
 
     this->row_num = rows;
     this->col_num = cols;
@@ -152,26 +132,11 @@ CSRMatrix<T>::CSRMatrix(size_t rows, size_t cols, const std::vector<T> &vals, co
 
 template <typename T>
 CSRMatrix<T>::CSRMatrix(const size_t rows, const size_t cols, const size_t nnz, const std::vector<T> &vals, const std::vector<size_t> &row_pointers, const std::vector<size_t> &col_indices) {
-    // assert((rows >= 1 && cols >= 1) && "Matrix dimensions cannot be zero.");
-    // assert((row_pointers.size() == rows + 1) && "Rows pointers array does not match matrix row dimension.");
-    // assert((col_indices.size() == row_pointers.back()) && "Column indices array does not match nonzero count.");
-    // assert((vals.size() == col_indices.size()) && "Values array does not match nonzero count.");
-    // assert((nnz == row_pointers.back()) && "Nonzero count does not match rows pointers.");
-
-    if (rows < 1 || cols < 1)
-        throw InvalidDimensionsException("Matrix dimensions cannot be zero.");
-
-    if (row_pointers.size() != (rows + 1))
-        throw InvalidDimensionsException("Rows pointers array does not match matrix row dimension.");
-
-    if (col_indices.size() != row_pointers.back())
-        throw InvalidDimensionsException("Column indices array does not match nonzero count.");
-
-    if (vals.size() != col_indices.size())
-        throw InvalidDimensionsException("Values array does not match nonzero count.");
-
-    if (nnz != row_pointers.back())
-        throw InvalidDimensionsException("Nonzero count does not match rows pointers.");
+    assert((rows >= 1 && cols >= 1) && "Matrix dimensions cannot be zero.");
+    assert((row_pointers.size() == rows + 1) && "Rows pointers array does not match matrix row dimension.");
+    assert((col_indices.size() == row_pointers.back()) && "Column indices array does not match nonzero count.");
+    assert((vals.size() == col_indices.size()) && "Values array does not match nonzero count.");
+    assert((nnz == row_pointers.back()) && "Nonzero count does not match rows pointers.");
 
     this->row_num = rows;
     this->col_num = cols;
@@ -182,14 +147,8 @@ CSRMatrix<T>::CSRMatrix(const size_t rows, const size_t cols, const size_t nnz, 
 
 template <typename T>
 CSRMatrix<T>::CSRMatrix(const std::vector<T> &vals, const std::vector<size_t> &row_pointers, const std::vector<size_t> &col_indices) {
-    // assert((col_indices.size() == row_pointers.back()) && "Column indices array does not match nonzero count.");
-    // assert((vals.size() == col_indices.size()) && "Values array does not match nonzero count.");
-
-    if (col_indices.size() != row_pointers.back())
-        throw InvalidDimensionsException("Column indices array does not match nonzero count.");
-
-    if (vals.size() != col_indices.size())
-        throw InvalidDimensionsException("Values array does not match nonzero count.");
+    assert((col_indices.size() == row_pointers.back()) && "Column indices array does not match nonzero count.");
+    assert((vals.size() == col_indices.size()) && "Values array does not match nonzero count.");
 
     this->row_num = row_pointers.size() - 1;
     this->col_num = *std::max_element(col_indices.begin(), col_indices.end()) + 1;
@@ -200,14 +159,8 @@ CSRMatrix<T>::CSRMatrix(const std::vector<T> &vals, const std::vector<size_t> &r
 
 template <typename T>
 CSRMatrix<T>::CSRMatrix(const size_t rows, const size_t cols, const T *vals, const size_t *row_pointers, const size_t *col_indices) {
-    // assert((rows >= 1 && cols >= 1) && "Matrix dimensions cannot be zero.");
-    // assert(((row_pointers != nullptr) && (col_indices != nullptr) && (vals != nullptr)) && "NULL Pointers.");
-
-    if (rows < 1 || cols < 1)
-        throw InvalidDimensionsException("Matrix dimensions cannot be zero.");
-
-    if ((row_pointers == nullptr) || (col_indices == nullptr) || (vals == nullptr))
-        throw InvalidDimensionsException("NULL Pointers.");
+    assert((rows >= 1 && cols >= 1) && "Matrix dimensions cannot be zero.");
+    assert(((row_pointers != nullptr) && (col_indices != nullptr) && (vals != nullptr)) && "NULL Pointers.");
 
     this->row_num = rows;
     this->col_num = cols;
@@ -220,18 +173,9 @@ CSRMatrix<T>::CSRMatrix(const size_t rows, const size_t cols, const T *vals, con
 
 template <typename T>
 CSRMatrix<T>::CSRMatrix(const size_t rows, const size_t cols, const size_t nnz, const T *vals, const size_t *row_pointers, const size_t *col_indices) {
-    // assert((rows >= 1 && cols >= 1) && "Matrix dimensions cannot be zero.");
-    // assert(((row_pointers != nullptr) && (col_indices != nullptr) && (vals != nullptr)) && "NULL Pointers.");
-    // assert((nnz == row_pointers[rows]) && "Nonzero count does not match rows pointers.");
-
-    if (rows < 1 || cols < 1)
-        throw InvalidDimensionsException("Matrix dimensions cannot be zero.");
-
-    if ((row_pointers == nullptr) || (col_indices == nullptr) || (vals == nullptr))
-        throw InvalidDimensionsException("NULL Pointers.");
-
-    if (nnz != row_pointers[rows])
-        throw InvalidDimensionsException("Nonzero count does not match rows pointers.");
+    assert((rows >= 1 && cols >= 1) && "Matrix dimensions cannot be zero.");
+    assert(((row_pointers != nullptr) && (col_indices != nullptr) && (vals != nullptr)) && "NULL Pointers.");
+    assert((nnz == row_pointers[rows]) && "Nonzero count does not match rows pointers.");
 
     this->row_num = rows;
     this->col_num = cols;
@@ -324,14 +268,14 @@ CSRMatrix<T> &CSRMatrix<T>::operator=(const CSRMatrix<T> &other) {
 
 template <typename T>
 CSRMatrix<T>::CSRMatrix(CSRMatrix<T> &&other) {
-    this->shallowCopy(std::move(other));
+    this->shallowCopy(std::forward(other));
 }
 
 template <typename T>
 CSRMatrix<T> &CSRMatrix<T>::operator=(CSRMatrix<T> &&other) {
     if (this != &other) {
         this->destruct();
-        this->shallowCopy(std::move(other));
+        this->shallowCopy(std::forward(other));
     }
 
     return *this;
@@ -345,7 +289,7 @@ CSRMatrix<T>::~CSRMatrix() {
 // ============================= Setters/Getters ==========================================================
 template <typename T>
 CSRMatrix<T>::row_iterator CSRMatrix<T>::rowBegin(size_t row) const {
-    validateCoordinates(row);
+    assert((row >= 0 && row < this->row_num) && "Row index out of bounds.");
     size_t start = (*(this->row_pointers))[row];
     size_t end = (*(this->row_pointers))[row + 1];
     return row_iterator(&(*(this->col_indices))[start], &(*(this->col_indices))[end], &(*(this->vals))[start]);
@@ -353,7 +297,8 @@ CSRMatrix<T>::row_iterator CSRMatrix<T>::rowBegin(size_t row) const {
 
 template <typename T>
 T CSRMatrix<T>::get(size_t row, size_t col) const {
-    this->validateCoordinates(row, col);
+    assert((row >= 0 && row < this->row_num) && "Row index out of bounds.");
+    assert((col >= 0 && col < this->col_num) && "Column index out of bounds.");
 
     int current_col{-1};
     for (size_t pos = (*(this->row_pointers))[row]; pos < (*(this->row_pointers))[row + 1]; ++pos) {
@@ -371,7 +316,8 @@ T CSRMatrix<T>::get(size_t row, size_t col) const {
 
 template <typename T>
 CSRMatrix<T> &CSRMatrix<T>::set(T val, size_t row, size_t col) {
-    this->validateCoordinates(row, col);
+    assert((row >= 0 && row < this->row_num) && "Row index out of bounds.");
+    assert((col >= 0 && col < this->col_num) && "Column index out of bounds.");
 
     size_t pos = (*(this->row_pointers))[row];
     int current_col{-1};
@@ -400,13 +346,8 @@ CSRMatrix<T> &CSRMatrix<T>::set(T val, size_t row, size_t col) {
 // ============================= Matrix Operations ==========================================================
 template <typename T>
 std::shared_ptr<std::vector<T>> CSRMatrix<T>::multiply(const std::vector<T> &x) const {
-    // assert((this->row_pointers != nullptr && this->col_indices != nullptr && this->vals != nullptr) && "Cannot multiply: Matrix is empty.");
-    // assert((this->col_num == x.size()) && "Cannot multiply: Matrix column count and vector size do not match.");
-
-    if (this->row_pointers == nullptr || this->col_indices == nullptr || this->vals == nullptr)
-        throw InvalidDimensionsException("Cannot multiply: Matrix is empty.");
-    if (this->col_num != x.size())
-        throw InvalidDimensionsException("Cannot multiply: Matrix column count and vector size do not match.");
+    assert((this->row_pointers != nullptr && this->col_indices != nullptr && this->vals != nullptr) && "Cannot multiply: Matrix is empty.");
+    assert((this->col_num == x.size()) && "Cannot multiply: Matrix column count and vector size do not match.");
 
     std::shared_ptr<std::vector<T>> result = std::make_shared<std::vector<T>>(this->row_num, T());
 
@@ -446,13 +387,8 @@ std::shared_ptr<std::vector<T>> CSRMatrix<T>::operator*(const std::vector<T> &x)
 
 template <typename T>
 std::shared_ptr<CSRMatrix<T>> CSRMatrix<T>::multiply(const CSRMatrix<T> &other) const {
-    // assert((this->row_pointers != nullptr && this->col_indices != nullptr && this->vals != nullptr) && "Cannot multiply: Matrix is empty.");
-    // assert((this->col_num == other.row_num) && "Cannot multiply: Left matrix column count and right matrix row count do not match.");
-
-    if (this->row_pointers == nullptr || this->col_indices == nullptr || this->vals == nullptr)
-        throw InvalidDimensionsException("Cannot multiply: Matrix is empty.");
-    if (this->col_num != other.row_num)
-        throw InvalidDimensionsException("Cannot multiply: Left matrix column count and right matrix row count do not match.");
+    assert((this->row_pointers != nullptr && this->col_indices != nullptr && this->vals != nullptr) && "Cannot multiply: Matrix is empty.");
+    assert((this->col_num == other.row_num) && "Cannot multiply: Left matrix column count and right matrix row count do not match.");
 
     std::shared_ptr<CSRMatrix<T>> result = std::make_shared<CSRMatrix<T>>();
 
@@ -474,13 +410,8 @@ std::shared_ptr<CSRMatrix<T>> CSRMatrix<T>::operator*(const CSRMatrix<T> &other)
 
 template <typename T>
 std::shared_ptr<CSRMatrix<T>> CSRMatrix<T>::add(const CSRMatrix<T> &other) const {
-    // assert((this->row_pointers != nullptr && this->col_indices != nullptr && this->vals != nullptr) && "Cannot add: Matrix is empty.");
-    // assert((this->row_num == other.row_num && this->col_num == other.col_num) && "Cannot add: Matrix dimensions do not match.");
-
-    if (this->row_pointers == nullptr || this->col_indices == nullptr || this->vals == nullptr)
-        throw InvalidDimensionsException("Cannot multiply: Matrix is empty.");
-    if (this->row_num != other.row_num || this->col_num != other.col_num)
-        throw InvalidDimensionsException("Cannot add: Matrix dimensions do not match.");
+    assert((this->row_pointers != nullptr && this->col_indices != nullptr && this->vals != nullptr) && "Cannot add: Matrix is empty.");
+    assert((this->row_num == other.row_num && this->col_num == other.col_num) && "Cannot add: Matrix dimensions do not match.");
 
     std::shared_ptr<CSRMatrix<T>> result = std::make_shared<CSRMatrix<T>>();
 
@@ -489,9 +420,8 @@ std::shared_ptr<CSRMatrix<T>> CSRMatrix<T>::add(const CSRMatrix<T> &other) const
     result->row_pointers = new std::vector<size_t>(this->row_num + 1, 0);
 
     // Compute non zero count per row in the result matrix
-    std::vector<int> marker(result->col_num, -1);
-
     if constexpr (SEQUENTIAL) {
+        std::vector<int> marker(result->col_num, -1);
         for (size_t i = 0; i < result->row_num; ++i) {
             size_t resultCols = 0;
 
@@ -515,6 +445,7 @@ std::shared_ptr<CSRMatrix<T>> CSRMatrix<T>::add(const CSRMatrix<T> &other) const
         }
     } else {
         auto f = [&](size_t start, size_t end) {
+            std::vector<int> marker(result->col_num, -1);
             for (size_t i = start; i < end; ++i) {
                 size_t resultCols = 0;
 
@@ -547,7 +478,7 @@ std::shared_ptr<CSRMatrix<T>> CSRMatrix<T>::add(const CSRMatrix<T> &other) const
 
     // Compute the column indices and values of the result matrix
     if constexpr (SEQUENTIAL) {
-        marker = std::vector<int>(result->col_num, -1);
+        std::vector<int> marker(result->col_num, -1);
         
         for (size_t i = 0; i < result->row_num; ++i) {
             const size_t rowBeg = (*(result->row_pointers))[i];
@@ -583,7 +514,7 @@ std::shared_ptr<CSRMatrix<T>> CSRMatrix<T>::add(const CSRMatrix<T> &other) const
         }
     } else {
         auto f = [&](size_t start, size_t end) {
-            marker = std::vector<int>(result->col_num, -1);
+            std::vector<int> marker(result->col_num, -1);
         
             for (size_t i = start; i < end; ++i) {
                 const size_t rowBeg = (*(result->row_pointers))[i];
@@ -634,13 +565,8 @@ std::shared_ptr<CSRMatrix<T>> CSRMatrix<T>::operator+(const CSRMatrix<T> &other)
 
 template <typename T>
 std::shared_ptr<CSRMatrix<T>> CSRMatrix<T>::subtract(const CSRMatrix<T> &other) const {
-    // assert((this->row_pointers != nullptr && this->col_indices != nullptr && this->vals != nullptr) && "Cannot subtract: Matrix is empty.");
-    // assert((this->row_num == other.row_num && this->col_num == other.col_num) && "Cannot subtract: Matrix dimensions do not match.");
-
-    if (this->row_pointers == nullptr || this->col_indices == nullptr || this->vals == nullptr)
-        throw InvalidDimensionsException("Cannot multiply: Matrix is empty.");
-    if (this->row_num != other.row_num || this->col_num != other.col_num)
-        throw InvalidDimensionsException("Cannot add: Matrix dimensions do not match.");
+    assert((this->row_pointers != nullptr && this->col_indices != nullptr && this->vals != nullptr) && "Cannot subtract: Matrix is empty.");
+    assert((this->row_num == other.row_num && this->col_num == other.col_num) && "Cannot subtract: Matrix dimensions do not match.");
 
     std::shared_ptr<CSRMatrix<T>> result = std::make_shared<CSRMatrix<T>>();
 
@@ -859,30 +785,14 @@ std::shared_ptr<CSRMatrix<T>> CSRMatrix<T>::transpose() const {
     }
     transposedMatrix->scanRowSize();
 
-    if constexpr (SEQUENTIAL) {
-        for (size_t i = 0; i < this->row_num; ++i) {
-            const size_t start = (*(this->row_pointers))[i];
-            const size_t end = (*(this->row_pointers))[i + 1];
-            for (size_t j = start; j < end; ++j) {
-                size_t head = (*(transposedMatrix->row_pointers))[(*(this->col_indices))[j]]++;
-                (*(transposedMatrix->col_indices))[head] = i;
-                (*(transposedMatrix->vals))[head] = (*(this->vals))[j];
-            }
+    for (size_t i = 0; i < this->row_num; ++i) {
+        const size_t start = (*(this->row_pointers))[i];
+        const size_t end = (*(this->row_pointers))[i + 1];
+        for (size_t j = start; j < end; ++j) {
+            size_t head = (*(transposedMatrix->row_pointers))[(*(this->col_indices))[j]]++;
+            (*(transposedMatrix->col_indices))[head] = i;
+            (*(transposedMatrix->vals))[head] = (*(this->vals))[j];
         }
-    } else {
-        auto f = [&](size_t start, size_t end) {
-            for (size_t i = start; i < end; ++i) {
-                const size_t row_start = (*(this->row_pointers))[i];
-                const size_t row_end = (*(this->row_pointers))[i + 1];
-                for (size_t j = row_start; j < row_end; ++j) {
-                    size_t head = (*(transposedMatrix->row_pointers))[(*(this->col_indices))[j]]++;
-                    (*(transposedMatrix->col_indices))[head] = i;
-                    (*(transposedMatrix->vals))[head] = (*(this->vals))[j];
-                }
-            }
-        };
-
-        launchThreads(this->row_num, f);
     }
 
     std::rotate(transposedMatrix->row_pointers->begin(), transposedMatrix->row_pointers->begin() + this->col_num, transposedMatrix->row_pointers->begin() + this->col_num + 1);
@@ -985,26 +895,6 @@ void CSRMatrix<T>::deepCopy(const CSRMatrix<T> &other) {
     this->row_pointers = new std::vector<size_t>(*(other.row_pointers));
     this->col_indices = new std::vector<size_t>(*(other.col_indices));
     this->vals = new std::vector<T>(*(other.vals));
-}
-
-template <typename T>
-void CSRMatrix<T>::validateCoordinates(size_t row, size_t col) const {
-    // assert((row >= 0 && row < this->row_num) && "Row index out of bounds.");
-    // assert((col >= 0 && col < this->col_num) && "Column index out of bounds.");
-
-    if (row >= this->row_num)
-        throw InvalidCoordinatesException("Row index out of bounds.");
-
-    if (col >= this->col_num)
-        throw InvalidCoordinatesException("Column index out of bounds.");
-}
-
-template <typename T>
-void CSRMatrix<T>::validateCoordinates(size_t row) const {
-    // assert((row >= 0 && row < this->row_num) && "Row index out of bounds.");
-
-    if (row >= this->row_num)
-        throw InvalidCoordinatesException("Row index out of bounds.");
 }
 
 template <typename T>
@@ -1118,18 +1008,3 @@ void spgemm_saad(const CSRMatrix<T> &A, const CSRMatrix<T> &B, CSRMatrix<T> &C);
 
 template <typename T>
 void spgemm_rmerge(const CSRMatrix<T> &A, const CSRMatrix<T> &B, CSRMatrix<T> &C);
-
-template <typename Func>
-void launchThreads(size_t row_num, Func&& f) {
-    std::vector<std::thread> threads;
-    size_t rows_per_thread = (row_num + num_threads - 1) / num_threads;
-
-    for (int t = 0; t < num_threads; ++t) {
-        size_t start = t * rows_per_thread;
-        size_t end = std::min(row_num, start + rows_per_thread);
-        threads.emplace_back(std::forward<Func>(f), start, end);
-    }
-
-    for (auto &thread : threads)
-        thread.join();
-}

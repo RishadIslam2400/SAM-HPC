@@ -165,9 +165,6 @@ void testCD2D2()
     SparseApproximateMap<double, GlobalThresholdPattern> testSAM(targetMatrix, sourceMatrix, pattern);
     testSAM.computeMap();
 
-    std::cout << "Map:\n"
-              << *testSAM.getMap() << std::endl;
-
     // assertEquals<CSRMatrix<double>>(expectedMap, *computedMap);
     std::cout << "OK" << std::endl;
 }

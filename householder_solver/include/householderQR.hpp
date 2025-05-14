@@ -25,8 +25,7 @@
 
     Features: This implementation has time complexity
     O(x.size()) and requires O(1) additional memory.          */
-double partial_dot_product(const std::vector<double> &x, const std::vector<double> &y, const size_t index)
-{
+double partial_dot_product(const std::vector<double> &x, const std::vector<double> &y, const size_t index) {
     assert(x.size() == y.size() && "Vectors must be of the same size.");
     assert(index <= x.size() && "Index out of bounds.");
 
@@ -45,9 +44,8 @@ double partial_dot_product(const std::vector<double> &x, const std::vector<doubl
     Features: This implementation has time complexity
     O(length) and requires O(1) additional memory.            */
 
-void scalar_div(std::vector<double> &x, const double r)
-{
-    std::transform(x.begin(), x.end(), x.begin(), [&r](double a) { return a / r; });
+void scalar_div(std::vector<double> &x, const double r) {
+    std::transform(x.begin(), x.end(), x.begin(), [&r](double a) { return a / (r + 1e-13); });
 }
 
 /* -------------------- subdot_product -------------------- */
@@ -74,13 +72,11 @@ void scalar_div(std::vector<double> &x, const double r)
 
     Features: This implementation has time complexity
     O(length) and requires O(1) additional memory.          */
-double subdot_product(const std::vector<double> &x, const std::vector<double> &y, const size_t index)
-{
+double subdot_product(const std::vector<double> &x, const std::vector<double> &y, const size_t index) {
     assert(index <= x.size() && "Index out of bounds.");
     assert(index + y.size() <= x.size() && "Vectors must be of the same size.");
 
-    return std::transform_reduce(x.begin() + index, x.end(), y.begin(), 0.0, std::plus<double>(), [](double a, double b)
-                                 { return a * b; });
+    return std::transform_reduce(x.begin() + index, x.end(), y.begin(), 0.0, std::plus<double>(), [](double a, double b) { return a * b; });
 }
 
 /* --------------------- partialscalar_sub --------------------- */
@@ -102,13 +98,11 @@ double subdot_product(const std::vector<double> &x, const std::vector<double> &y
 
     Features: This implementation has time complexity
     O(length) and requires O(1) additional memory.               */
-void partialscalar_sub(const std::vector<double> &x, const double r, const size_t index, std::vector<double> &y)
-{
+void partialscalar_sub(const std::vector<double> &x, const double r, const size_t index, std::vector<double> &y) {
     assert(index <= y.size() && "Index out of bounds.");
     assert(index + x.size() <= y.size() && "Vectors must be of the same size.");
 
-    std::transform(x.begin(), x.end(), y.begin() + index, y.begin() + index, [r](double a, double b)
-                   { return b - r * a; });
+    std::transform(x.begin(), x.end(), y.begin() + index, y.begin() + index, [r](double a, double b) { return b - r * a; });
 }
 
 /* ----------------------- householder ----------------------- */
@@ -135,10 +129,8 @@ void partialscalar_sub(const std::vector<double> &x, const double r, const size_
     ~ 2 * m * n^2 - (2/3) * n^3 and requires O(1) additional
     memory.                                                    */
 
-void householderQR(std::vector<std::vector<double>> &a, std::vector<std::vector<double>> &v, const size_t m, const size_t n)
-{
-    for (size_t i = 0; i < n; ++i)
-    {
+void householderQR(std::vector<std::vector<double>> &a, std::vector<std::vector<double>> &v, const size_t m, const size_t n) {
+    for (size_t i = 0; i < n; ++i) {
         // Set v[i] equal to subvector a[i][i:m]
         v[i].assign(a[i].begin() + i, a[i].end());
         
@@ -150,12 +142,9 @@ void householderQR(std::vector<std::vector<double>> &a, std::vector<std::vector<
         const double vpartdot = partial_dot_product(v[i], v[i], 1);
 
         // set v[i][0] = v[i][0] + sign(v[i][0]) * ||v[i]||;
-        if (v[i][0] < 0)
-        {
+        if (v[i][0] < 0) {
             v[i][0] -= std::sqrt(v[i][0] * v[i][0] + vpartdot);
-        }
-        else
-        {
+        } else {
             v[i][0] += std::sqrt(v[i][0] * v[i][0] + vpartdot);
         }
 
@@ -163,8 +152,7 @@ void householderQR(std::vector<std::vector<double>> &a, std::vector<std::vector<
         const double vnorm = std::sqrt(v[i][0] * v[i][0] + vpartdot);
         scalar_div(v[i], vnorm);
 
-        for (size_t j = i; j < n; ++j)
-        {
+        for (size_t j = i; j < n; ++j) {
             // Set a[j][i:m] = a[j][i:m] - 2 * v[i] * (v[i]^T * a[j][i:m])
             double vTa = subdot_product(a[j], v[i], i);
             vTa *= 2.0;
@@ -173,10 +161,8 @@ void householderQR(std::vector<std::vector<double>> &a, std::vector<std::vector<
     }
 }
 
-void householderQRSolve(std::vector<std::vector<double>> &A, std::vector<double> &rhs, std::span<double> x, const size_t cols, const size_t rows)
-{
-    if (rows == 0 || cols == 0)
-    {
+void householderQRSolve(std::vector<std::vector<double>> &A, std::vector<double> &rhs, std::span<double> x, const size_t cols, const size_t rows) {
+    if (rows == 0 || cols == 0) {
         return;
     }
 
@@ -191,16 +177,14 @@ void householderQRSolve(std::vector<std::vector<double>> &A, std::vector<double>
     householderQR(A, V, rows, cols);
 
     // Apply Q^T to the right-hand side
-    for (size_t i = 0; i < cols; ++i)
-    {
+    for (size_t i = 0; i < cols; ++i) {
         // Compute 2 * (V[i]^T * rhs[i:rows]) * V[i]
         const double vTy = subdot_product(rhs, V[i], i) * 2.0;
         partialscalar_sub(V[i], vTy, i, rhs);
     }
 
     // Solve Rx = Q^T b using back-substitution
-    for (int i = static_cast<int>(cols) - 1; i >= 0; --i)
-    {
+    for (int i = static_cast<int>(cols) - 1; i >= 0; --i) {
         x[i] = rhs[i];
         for (size_t j = i + 1; j < cols; ++j)
         {

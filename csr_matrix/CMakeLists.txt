@@ -1,7 +1,9 @@
-project(SAM_HPC LANGUAGES CXX)
-cmake_minimum_required(VERSION 3.10)
-
 add_library(csr_matrix INTERFACE)
-target_include_directories(csr_matrix INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../csr_matrix/include/)
-target_compile_features(csr_matrix INTERFACE cxx_std_20)
-target_link_libraries(csr_matrix INTERFACE -ltbb)
+target_include_directories(csr_matrix
+    INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../csr_matrix/include>
+)
+
+find_package(TBB REQUIRED)
+find_package(Threads REQUIRED)
+target_link_libraries(csr_matrix INTERFACE TBB::tbb Threads::Threads tools)

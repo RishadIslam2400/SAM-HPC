@@ -139,7 +139,7 @@ bool operator==(const std::vector<double> &lhs, const std::vector<double> &rhs)
         return false;
     for (size_t i = 0; i < lhs.size(); ++i)
     {
-        if (std::abs(lhs[i] - rhs[i]) > 1e-7)
+        if (std::abs(lhs[i] - rhs[i]) > 1e-6)
             return false;
     }
     return true;

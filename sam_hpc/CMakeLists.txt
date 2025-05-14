@@ -1,10 +1,15 @@
-project(${CMAKE_PROJECT_NAME})
-cmake_minimum_required(VERSION 3.10)
-
 find_package(Eigen3 REQUIRED)
-link_directories(${Eigen_INCLUDE_DIRS})
+
 add_library(sam INTERFACE)
-target_include_directories(sam INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../sam_hpc/include)
-target_link_libraries(sam INTERFACE csr_matrix ${Eigen_LIBRARIES})
-target_link_libraries(sam INTERFACE mgs_solver householder_solver)
-target_compile_features(sam INTERFACE cxx_std_20)
+target_include_directories(sam 
+    INTERFACE 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../sam_hpc/include>
+)
+target_link_libraries(sam
+    INTERFACE
+    csr_matrix
+    tools
+    mgs_solver
+    householder_solver
+    Eigen3::Eigen
+)

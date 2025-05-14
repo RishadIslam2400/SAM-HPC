@@ -6,11 +6,12 @@
 #include "mgsQR.hpp"
 #include "eigenQRSolve.hpp"
 
+#include "launchThreads.hpp"
+
 // @todo: add post filtration
 
 template <typename T, typename SparsityPatternType>
-class SparseApproximateMap
-{
+class SparseApproximateMap {
 private:
     const CSRMatrix<T> *targetMatrix;
     const CSRMatrix<T> *sourceMatrix;
@@ -39,8 +40,7 @@ public:
 template <typename T, typename SparsityPatternType>
 SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const CSRMatrix<T> &targetMatrix,
                                                                    const CSRMatrix<T> &sourceMatrix,
-                                                                   const SparsityPattern<T, SparsityPatternType> &pattern)
-{
+                                                                   const SparsityPattern<T, SparsityPatternType> &pattern) {
     assert((targetMatrix.row_num == sourceMatrix.row_num && targetMatrix.col_num == sourceMatrix.col_num) && "Target and source matrices must have the same dimensions.");
     assert((targetMatrix.row_num > 0 && targetMatrix.col_num > 0) && "Target and source matrices must have non-zero dimensions.");
     this->targetMatrix = &targetMatrix;
@@ -50,8 +50,7 @@ SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const CSRMatr
 }
 
 template <typename T, typename SparsityPatternType>
-SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const CSRMatrix<T> &targetMatrix, const CSRMatrix<T> &sourceMatrix, const SparsityPatternType &patternType)
-{
+SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const CSRMatrix<T> &targetMatrix, const CSRMatrix<T> &sourceMatrix, const SparsityPatternType &patternType) {
     assert((targetMatrix.row_num == sourceMatrix.row_num && targetMatrix.col_num == sourceMatrix.col_num) && "Target and source matrices must have the same dimensions.");
     assert((targetMatrix.row_num > 0 && targetMatrix.col_num > 0) && "Target and source matrices must have non-zero dimensions.");
     this->targetMatrix = &targetMatrix;
@@ -61,8 +60,7 @@ SparseApproximateMap<T, SparsityPatternType>::SparseApproximateMap(const CSRMatr
 }
 
 template <typename T, typename SparsityPatternType>
-void SparseApproximateMap<T, SparsityPatternType>::computeMap()
-{
+void SparseApproximateMap<T, SparsityPatternType>::computeMap() {
     // Get the computed sparsity pattern matrix
     sparsityPattern->computePattern();
     const CSRMatrix<int> *pattern = sparsityPattern->getPattern();
@@ -75,110 +73,171 @@ void SparseApproximateMap<T, SparsityPatternType>::computeMap()
     mappingMatrix->row_pointers = new std::vector<size_t>(*(pattern->row_pointers));
     mappingMatrix->col_indices = new std::vector<size_t>(*(pattern->col_indices));
     mappingMatrix->vals = new std::vector<T>(mappingMatrix->nnz, 0);
-    std::span<T> x(*(mappingMatrix->vals));
-
+    // Todo: change span to pointers
     // Start SAM computation
-    std::vector<size_t> I, J;
-    std::vector<T> rhs;
-    std::vector<std::vector<T>> submatrix;
-    for (size_t i = 0; i < mappingMatrix->row_num; ++i)
-    {
-        // Compute the submatrix indices for each row
-        const size_t rowStart = (*(pattern->row_pointers))[i];
-        const size_t rowEnd = (*(pattern->row_pointers))[i + 1];
-        I.assign((*(pattern->col_indices)).begin() + rowStart, (*(pattern->col_indices)).begin() + rowEnd);
-        J.clear();
-        std::vector<int> marker(mappingMatrix->col_num, -1);
+    if constexpr (SEQUENTIAL) {
+        std::vector<size_t> J;
+        std::vector<T> rhs;
+        std::vector<std::vector<T>> submatrix;
+        for (size_t i = 0; i < mappingMatrix->row_num; ++i) {
+            // Compute the submatrix indices for each row
+            const size_t rowStart = (*(pattern->row_pointers))[i];
+            const size_t rowEnd = (*(pattern->row_pointers))[i + 1];
+            size_t iSize = rowEnd - rowStart; // For I
+            J.clear();
+            std::vector<int> marker(mappingMatrix->col_num, -1);
 
-        for (size_t j = rowStart; j < rowEnd; ++j)
-        {
-            const size_t colIdx = (*(pattern->col_indices))[j];
+            for (size_t j = rowStart; j < rowEnd; ++j) {
+                const size_t colIdx = (*(pattern->col_indices))[j];
 
-            for (size_t colIdxRowStart = (*(pattern->row_pointers))[colIdx]; colIdxRowStart < (*(pattern->row_pointers))[colIdx + 1]; ++colIdxRowStart)
-            {
-                const size_t submatrixColIdx = (*(pattern->col_indices))[colIdxRowStart];
-                if (marker[submatrixColIdx] < 0)
-                {
-                    marker[submatrixColIdx] = 1;
-                    J.push_back(submatrixColIdx);
+                for (size_t colIdxRowStart = (*(pattern->row_pointers))[colIdx]; colIdxRowStart < (*(pattern->row_pointers))[colIdx + 1]; ++colIdxRowStart) {
+                    const size_t submatrixColIdx = (*(pattern->col_indices))[colIdxRowStart];
+                    if (marker[submatrixColIdx] < 0) {
+                        marker[submatrixColIdx] = 1;
+                        J.push_back(submatrixColIdx);
+                    }
                 }
             }
-        }
 
-        std::sort(J.begin(), J.end());
+            std::sort(J.begin(), J.end());
 
-        // Compute the RHS vector from the target matrix
-        rhs.assign(J.size(), 0);
-        size_t targetRowStart = (*(targetMatrix->row_pointers))[i];
-        const size_t targetRowEnd = (*(targetMatrix->row_pointers))[i + 1];
-        for (size_t j = 0; j < J.size() && targetRowStart < targetRowEnd;)
-        {
-            if (J[j] == (*(targetMatrix->col_indices))[targetRowStart])
-            {
-                rhs[j] = (*(targetMatrix->vals))[targetRowStart];
-                ++targetRowStart;
+            // Compute the RHS vector from the target matrix
+            rhs.assign(J.size(), 0);
+            size_t targetRowStart = (*(targetMatrix->row_pointers))[i];
+            const size_t targetRowEnd = (*(targetMatrix->row_pointers))[i + 1];
+            for (size_t j = 0; j < J.size() && targetRowStart < targetRowEnd;) {
+                if (J[j] == (*(targetMatrix->col_indices))[targetRowStart]) {
+                    rhs[j] = (*(targetMatrix->vals))[targetRowStart];
+                    ++targetRowStart;
+                    ++j;
+                    continue;
+                } else if (J[j] > (*(targetMatrix->col_indices))[targetRowStart]) {
+                    ++targetRowStart;
+                    continue;
+                }
                 ++j;
-                continue;
             }
-            else if (J[j] > (*(targetMatrix->col_indices))[targetRowStart])
-            {
-                ++targetRowStart;
-                continue;
-            }
-            ++j;
-        }
 
-        // Compute the submatrix
-        submatrix.assign(I.size(), std::vector<T>(J.size(), 0));
-        for (size_t submatrixRowIdx = 0, j = rowStart; j < rowEnd; ++submatrixRowIdx, ++j)
-        {
-            const size_t colIdx = (*(pattern->col_indices))[j];
- 
-            size_t sourceRowStart = (*(sourceMatrix->row_pointers))[colIdx];
-            const size_t sourceRowEnd = (*(sourceMatrix->row_pointers))[colIdx + 1];
-            for (size_t submatrixColIdx = 0; submatrixColIdx < J.size() && sourceRowStart < sourceRowEnd;)
-            {
-                if (J[submatrixColIdx] == (*(sourceMatrix->col_indices))[sourceRowStart])
-                {
-                    // Column major submatrix - striding by row size
-                    submatrix[submatrixRowIdx][submatrixColIdx] = (*(sourceMatrix->vals))[sourceRowStart];
-                    ++sourceRowStart;
+            // Compute the submatrix
+            submatrix.assign(iSize, std::vector<T>(J.size(), 0));
+            for (size_t submatrixRowIdx = 0, j = rowStart; j < rowEnd; ++submatrixRowIdx, ++j) {
+                const size_t colIdx = (*(pattern->col_indices))[j];
+
+                size_t sourceRowStart = (*(sourceMatrix->row_pointers))[colIdx];
+                const size_t sourceRowEnd = (*(sourceMatrix->row_pointers))[colIdx + 1];
+                for (size_t submatrixColIdx = 0; submatrixColIdx < J.size() && sourceRowStart < sourceRowEnd;) {
+                    if (J[submatrixColIdx] == (*(sourceMatrix->col_indices))[sourceRowStart]) {
+                        // Column major submatrix - striding by row size
+                        submatrix[submatrixRowIdx][submatrixColIdx] = (*(sourceMatrix->vals))[sourceRowStart];
+                        ++sourceRowStart;
+                        ++submatrixColIdx;
+                        continue;
+                    } else if (J[submatrixColIdx] > (*(sourceMatrix->col_indices))[sourceRowStart]) {
+                        ++sourceRowStart;
+                        continue;
+                    }
                     ++submatrixColIdx;
-                    continue;
                 }
-                else if(J[submatrixColIdx] > (*(sourceMatrix->col_indices))[sourceRowStart])
-                {
-                    ++sourceRowStart;
-                    continue;
-                }
-                ++submatrixColIdx;
             }
-        }
 
-        // Solve the submatrix
-        // mgsQRSolve(submatrix, rhs, x.subspan(rowStart, iSize), iSize, J.size());
-        householderQRSolve(submatrix, rhs, x.subspan(rowStart, I.size()), I.size(), J.size());
-        // eigenQRSolve(submatrix, rhs, x.subspan(rowStart, iSize), iSize, J.size());
+            std::span<T> x_subspan(mappingMatrix->vals->data() + rowStart, iSize);
+            // Solve the submatrix
+            // mgsQRSolve(submatrix, rhs, x.subspan(rowStart, iSize), iSize, J.size());
+            householderQRSolve(submatrix, rhs, x_subspan, iSize, J.size());
+            // eigenQRSolve(submatrix, rhs, x.subspan(rowStart, iSize), iSize, J.size());
+        }
+    } else {
+        auto samComputation = [&](size_t start, size_t end) {
+            std::vector<size_t> J;
+            std::vector<T> rhs;
+            std::vector<std::vector<T>> submatrix;
+            for (size_t i = start; i < end; ++i) {
+                // Compute the submatrix indices for each row
+                const size_t rowStart = (*(pattern->row_pointers))[i];
+                const size_t rowEnd = (*(pattern->row_pointers))[i + 1];
+                size_t iSize = rowEnd - rowStart; // For I
+                J.clear();
+                std::vector<int> marker(mappingMatrix->col_num, -1);
+
+                for (size_t j = rowStart; j < rowEnd; ++j) {
+                    const size_t colIdx = (*(pattern->col_indices))[j];
+
+                    for (size_t colIdxRowStart = (*(pattern->row_pointers))[colIdx]; colIdxRowStart < (*(pattern->row_pointers))[colIdx + 1]; ++colIdxRowStart) {
+                        const size_t submatrixColIdx = (*(pattern->col_indices))[colIdxRowStart];
+                        if (marker[submatrixColIdx] < 0) {
+                            marker[submatrixColIdx] = 1;
+                            J.push_back(submatrixColIdx);
+                        }
+                    }
+                }
+
+                std::sort(J.begin(), J.end());
+
+                // Compute the RHS vector from the target matrix
+                rhs.assign(J.size(), 0);
+                size_t targetRowStart = (*(targetMatrix->row_pointers))[i];
+                const size_t targetRowEnd = (*(targetMatrix->row_pointers))[i + 1];
+                for (size_t j = 0; j < J.size() && targetRowStart < targetRowEnd;) {
+                    if (J[j] == (*(targetMatrix->col_indices))[targetRowStart]) {
+                        rhs[j] = (*(targetMatrix->vals))[targetRowStart];
+                        ++targetRowStart;
+                        ++j;
+                        continue;
+                    } else if (J[j] > (*(targetMatrix->col_indices))[targetRowStart]) {
+                        ++targetRowStart;
+                        continue;
+                    }
+                    ++j;
+                }
+
+                // Compute the submatrix
+                submatrix.assign(iSize, std::vector<T>(J.size(), 0));
+                for (size_t submatrixRowIdx = 0, j = rowStart; j < rowEnd; ++submatrixRowIdx, ++j) {
+                    const size_t colIdx = (*(pattern->col_indices))[j];
+
+                    size_t sourceRowStart = (*(sourceMatrix->row_pointers))[colIdx];
+                    const size_t sourceRowEnd = (*(sourceMatrix->row_pointers))[colIdx + 1];
+                    for (size_t submatrixColIdx = 0; submatrixColIdx < J.size() && sourceRowStart < sourceRowEnd;) {
+                        if (J[submatrixColIdx] == (*(sourceMatrix->col_indices))[sourceRowStart]) {
+                            // Column major submatrix - striding by row size
+                            submatrix[submatrixRowIdx][submatrixColIdx] = (*(sourceMatrix->vals))[sourceRowStart];
+                            ++sourceRowStart;
+                            ++submatrixColIdx;
+                            continue;
+                        } else if (J[submatrixColIdx] > (*(sourceMatrix->col_indices))[sourceRowStart]) {
+                            ++sourceRowStart;
+                            continue;
+                        }
+                        ++submatrixColIdx;
+                    }
+                }
+
+                std::span<T> x_subspan(mappingMatrix->vals->data() + rowStart, iSize);
+                // Solve the submatrix
+                // mgsQRSolve(submatrix, rhs, x_subspan, iSize, J.size());
+                householderQRSolve(submatrix, rhs, x_subspan, iSize, J.size());
+                // eigenQRSolve(submatrix, rhs, x_subspan, iSize, J.size());
+            }
+        };
+
+        launchThreads(mappingMatrix->row_num, samComputation);
     }
 }
 
 template <typename T, typename SparsityPatternType>
-const CSRMatrix<T> *SparseApproximateMap<T, SparsityPatternType>::getMap() const
-{
+const CSRMatrix<T> *SparseApproximateMap<T, SparsityPatternType>::getMap() const {
     assert(mappingMatrix != nullptr && "Compute the mapping matrix first.");
     return mappingMatrix;
 }
 
 template <typename T, typename SparsityPatternType>
-const CSRMatrix<int> *SparseApproximateMap<T, SparsityPatternType>::getPattern() const
-{
+const CSRMatrix<int> *SparseApproximateMap<T, SparsityPatternType>::getPattern() const {
     assert(sparsityPattern != nullptr && "Compute the sparsity pattern first.");
     return sparsityPattern->getPattern();
 }
 
 template <typename T, typename SparsityPatternType>
-SparseApproximateMap<T, SparsityPatternType>::~SparseApproximateMap()
-{
+SparseApproximateMap<T, SparsityPatternType>::~SparseApproximateMap() {
     
     delete sparsityPattern;
     

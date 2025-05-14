@@ -1,9 +1,32 @@
-cmake_minimum_required(VERSION 3.10)
-project(SAM_HPC LANGUAGES CXX)
-
-add_executable(
-    qr_test
-    run_qr_tests.cpp
+add_executable(qr_test run_qr_tests.cpp)
+target_link_libraries(qr_test 
+    PUBLIC
+    sam # mgs_solver and householder_solver already linked to sam
+    csr_test_utils
 )
-target_link_libraries(qr_test PUBLIC mgs_solver householder_solver sam csr_test_utils)
-target_compile_options(qr_test PRIVATE -std=c++20 -Wall -Werror)
+target_compile_options(qr_test
+    PRIVATE
+
+    # Debug options
+    $<$<CONFIG:Debug>:-Wall>
+    $<$<CONFIG:Debug>:-Werror>
+    $<$<CONFIG:Debug>:-fsanitize=address>
+    $<$<CONFIG:Debug>:-fsanitize=undefined>
+    $<$<CONFIG:Debug>:-fsanitize=leak>
+
+    # $<$<CONFIG:Debug>:-fsanitize=thread>
+    $<$<CONFIG:Debug>:-g>
+    $<$<CONFIG:Debug>:-DDEBUG>
+
+    # Release options
+    $<$<CONFIG:Release>:-O3>
+    $<$<CONFIG:Release>:-DNDEBUG>
+)
+
+target_link_options(qr_test
+    PRIVATE
+    $<$<CONFIG:Debug>:-fsanitize=address>
+    $<$<CONFIG:Debug>:-fsanitize=undefined>
+    $<$<CONFIG:Debug>:-fsanitize=leak>
+    # $<$<CONFIG:Debug>:-fsanitize=thread>
+)

@@ -11,7 +11,7 @@ public:
     FailureException(const std::string &message) : std::runtime_error(message) {}
 };
 
-void assertException(const std::string &exceptionClass, const std::function<void()> &callback)
+/* void assertException(const std::string &exceptionClass, const std::function<void()> &callback)
 {
     try
     {
@@ -30,7 +30,7 @@ void assertException(const std::string &exceptionClass, const std::function<void
     }
 
     throw FailureException("Exception expected, but none thrown");
-}
+} */
 
 template <typename T>
 void assertEquals(const T &a, const T &b, const std::string &message = "")
