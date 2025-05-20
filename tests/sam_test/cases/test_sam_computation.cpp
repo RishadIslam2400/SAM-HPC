@@ -129,13 +129,13 @@ void testCD2D1()
     std::cout << "CD2D Simple Sparsity Pattern..." << std::flush;
 
     CSRMatrix<double> targetMatrix;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
 
     CSRMatrix<double> sourceMatrix;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
 
     CSRMatrix<double> expectedMap;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
 
     SparsityPattern<double, SimplePattern> pattern(sourceMatrix, SimplePattern());
     pattern.computePattern();
@@ -151,13 +151,13 @@ void testCD2D2()
     std::cout << "CD2D Global Sparsity Pattern..." << std::flush;
 
     CSRMatrix<double> targetMatrix;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
 
     CSRMatrix<double> sourceMatrix;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
 
     CSRMatrix<double> expectedMap;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
 
     GlobalThresholdPattern thresh{0.001};
     SparsityPattern<double, GlobalThresholdPattern> pattern(sourceMatrix, thresh);
@@ -174,13 +174,13 @@ void testCD2D3()
     std::cout << "CD2D Column Sparsity Pattern..." << std::flush;
 
     CSRMatrix<double> targetMatrix;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
 
     CSRMatrix<double> sourceMatrix;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
 
     CSRMatrix<double> expectedMap;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
 
     ColumnThresholdPattern thresh{0.001};
     SparsityPattern<double, ColumnThresholdPattern> pattern(sourceMatrix, thresh);
@@ -197,13 +197,13 @@ void testCD2D4()
     std::cout << "CD2D Fixed NNZ Sparsity Pattern..." << std::flush;
 
     CSRMatrix<double> targetMatrix;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
 
     CSRMatrix<double> sourceMatrix;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
 
     CSRMatrix<double> expectedMap;
-    read_mat("/home/rishad/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
+    read_mat("/home/mds222/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
 
     FixedNNZPattern thresh{3};
     SparsityPattern<double, FixedNNZPattern> pattern(sourceMatrix, thresh);
@@ -220,11 +220,11 @@ void testTopOpt1()
     std::cout << "TopOpt Simple Sparsity Pattern...\n" << std::flush;
 
     CSRMatrix<double> targetMatrix;
-    read_mat("/home/rishad/SAM-HPC/top_opt_matrices_small_csr/matrix_1.txt", &targetMatrix);
+    read_mat("/home/mds222/SAM-HPC/top_opt_matrices_small_csr/matrix_1.txt", &targetMatrix);
     std ::cout << "Target Matrix:\n" << targetMatrix << std::endl;
 
     CSRMatrix<double> sourceMatrix;
-    read_mat("/home/rishad/SAM-HPC/top_opt_matrices_small_csr/matrix_2.txt", &sourceMatrix);
+    read_mat("/home/mds222/SAM-HPC/top_opt_matrices_small_csr/matrix_2.txt", &sourceMatrix);
     std::cout << "Source Matrix:\n" << sourceMatrix << std::endl;
 
     SparsityPattern<double, SimplePattern> pattern(sourceMatrix, SimplePattern());

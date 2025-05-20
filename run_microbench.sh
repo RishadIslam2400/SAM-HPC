@@ -23,10 +23,10 @@ build_sequential() {
     cd .. 
 }
 
-OUTPUT_FILE="top_opt_sam_result.txt"
-SOURCE_FILE="top_opt_matrices_small_csr/matrix_6.txt"
-TARGET_FILE="top_opt_matrices_small_csr/matrix_1.txt"
-K=30
+OUTPUT_FILE="threshold_parameter_result.txt"
+SOURCE_FILE="/home/mds222/SAM-HPC/top_opt_matrices_small_csr/matrix_6.txt"
+TARGET_FILE="/home/mds222/SAM-HPC/top_opt_matrices_small_csr/matrix_1.txt"
+K=20
 
 touch "$OUTPUT_FILE"
 echo "Microbenchmark results" > "$OUTPUT_FILE"
@@ -37,7 +37,7 @@ parallel_benchmarks() {
     do
         echo "Running with $THREAD threads..."
         echo "Threads: $THREAD" >> "$OUTPUT_FILE"
-        ./build/benchmarks/microbench/microbench -n "sam microbenchmark parallel" -x "$SOURCE_FILE" -y "$TARGET_FILE" -k "$K" -t "$THREAD" >> "$OUTPUT_FILE"
+        ./build/benchmarks/microbench/threshold_benchmark -n "column threshold benchmark" -x "$SOURCE_FILE" -y "$TARGET_FILE" -k "$K" -t "$THREAD" >> "$OUTPUT_FILE"
     done
 
 }
@@ -45,11 +45,11 @@ parallel_benchmarks() {
 sequential_benchmark() {
     echo "----------Sequential----------" >> "$OUTPUT_FILE"
     echo "Running with 1 thread..."
-    ./build/benchmarks/microbench/microbench -n "sam microbenchmark sequential" -x "$SOURCE_FILE" -y "$TARGET_FILE" -k "$K" -t 1 >> "$OUTPUT_FILE"
+    ./build/benchmarks/microbench/threshold_benchmark -n "column threshold benchmark -x "$SOURCE_FILE" -y "$TARGET_FILE" -k "$K" -t 1 >> "$OUTPUT_FILE"
 }
 
 build_parallel
 parallel_benchmarks
 
-build_sequential
-sequential_benchmark
+#build_sequential
+#sequential_benchmark

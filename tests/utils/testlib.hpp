@@ -5,6 +5,8 @@
 #include <functional>
 #include <sstream>
 
+#include "helpers.hpp"
+
 class FailureException : public std::runtime_error
 {
 public:
