@@ -5,6 +5,7 @@
 #include <tbb/blocked_range.h>
 #include <tbb/task_arena.h>
 #include <tbb/enumerable_thread_specific.h>
+#include <tbb/global_control.h>
 
 // GLobal thread variable for parallelization
 

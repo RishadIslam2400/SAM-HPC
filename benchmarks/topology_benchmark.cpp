@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
     cfg.print();
 
     num_threads = cfg.threads;
+    tbb::global_control gc(tbb::global_control::max_allowed_parallelism, num_threads);
 
     // First matrix in the sequence, A_0 x_0 = r_0
     // read the matrix
