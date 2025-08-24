@@ -18,7 +18,7 @@
  * @return true If the matrix was read successfully, false otherwise.
  */
 template <typename T>
-bool read_mat(const char *filename, CSRMatrix<T> *matrix) {
+bool read_mat(const char *filename, CSRMatrix<T> &matrix) {
     std::ifstream infile(filename);
     if (!infile.is_open()) {
         std::cerr << "Error opening file: " << filename << std::endl;
@@ -40,9 +40,9 @@ bool read_mat(const char *filename, CSRMatrix<T> *matrix) {
         return false;
     }
 
-    matrix->row_num = rows;
-    matrix->col_num = cols;
-    matrix->nnz = nnz;
+    matrix.m_rows = rows;
+    matrix.m_cols = cols;
+    matrix.m_nnz = nnz;
 
     // Second line: row pointers
     if (!std::getline(infile, line)) {
@@ -50,9 +50,9 @@ bool read_mat(const char *filename, CSRMatrix<T> *matrix) {
         return false;
     }
     std::istringstream rowPtrStream(line);
-    matrix->row_pointers = new std::vector<size_t>(rows + 1);
+    matrix.m_row_pointers.resize(rows + 1, 0);
     for (size_t i = 0; i <= rows; ++i) {
-        if (!(rowPtrStream >> (*(matrix->row_pointers))[i])) {
+        if (!(rowPtrStream >> matrix.m_row_pointers[i])) {
             std::cerr << "Error parsing row pointers from file: " << filename << std::endl;
             return false;
         }
@@ -64,9 +64,9 @@ bool read_mat(const char *filename, CSRMatrix<T> *matrix) {
         return false;
     }
     std::istringstream colIdxStream(line);
-    matrix->col_indices = new std::vector<size_t>(nnz);
+    matrix.m_col_indices.resize(nnz, 0);
     for (size_t i = 0; i < nnz; ++i) {
-        if (!(colIdxStream >> (*(matrix->col_indices))[i])) {
+        if (!(colIdxStream >> matrix.m_col_indices[i])) {
             std::cerr << "Error parsing column indices from file: " << filename << std::endl;
             return false;
         }
@@ -78,10 +78,9 @@ bool read_mat(const char *filename, CSRMatrix<T> *matrix) {
         return false;
     }
     std::istringstream valStream(line);
-    matrix->vals = new std::vector<T>(nnz);
+    matrix.m_vals.resize(nnz, T(0));
     for (size_t i = 0; i < nnz; ++i) {
-        if (!(valStream >> (*(matrix->vals))[i]))
-        {
+        if (!(valStream >> matrix.m_vals[i])) {
             std::cerr << "Error parsing values from file: " << filename << std::endl;
             return false;
         }
@@ -170,4 +169,79 @@ CSRMatrix<T> read_mat(const char *filename) {
     infile.close();
 
     return CSRMatrix<T>(rows, cols, nnz, vals, row_pointers, col_indices);
+}
+
+/**
+ * @brief Reads a vector from a text file where each line contains one element.
+ *
+ * @tparam T The data type of the vector elements (e.g., double, float, int).
+ * @param filename A C-style string representing the path to the input text file.
+ * @param vec A pointer to a std::vector<T> object that will be filled
+ * with the data read from the file.
+ * @return true if the file was read successfully, false if the file could not be opened.
+ */
+template <typename T>
+bool read_vec(const char *filename, std::vector<T> &vec) {
+    // Open the input file stream.
+    std::ifstream infile(filename);
+    if (!infile.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return false;
+    }
+
+    // Clear the vector to ensure it's empty before filling.
+    vec.clear();
+
+    std::string line;
+    T value;
+
+    // Read the file line by line.
+    while (std::getline(infile, line)) {
+        // Use a string stream to parse the value from the current line.
+        std::istringstream valueStream(line);
+
+        if (valueStream >> value) {
+            vec.push_back(value);
+        } else {
+            if (!line.empty()) {
+                 std::cerr << "Warning: Could not parse value from line: \"" << line << "\" in file: " << filename << std::endl;
+            }
+        }
+    }
+
+    // Close the file stream.
+    infile.close();
+    return true;
+}
+
+template <typename T>
+std::vector<T> read_vec(const char *filename) {
+    // Open the input file stream.
+    std::ifstream infile(filename);
+    if (!infile.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return std::vector<T>();
+    }
+
+    std::vector<T> vec;
+    std::string line;
+    T value;
+
+    // Read the file line by line.
+    while (std::getline(infile, line)) {
+        // Use a string stream to parse the value from the current line.
+        std::istringstream valueStream(line);
+
+        if (valueStream >> value) {
+            vec.push_back(value);
+        } else {
+            if (!line.empty()) {
+                 std::cerr << "Warning: Could not parse value from line: \"" << line << "\" in file: " << filename << std::endl;
+            }
+        }
+    }
+
+    // Close the file stream.
+    infile.close();
+    return vec;
 }

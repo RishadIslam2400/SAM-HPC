@@ -12,4 +12,5 @@ target_link_libraries(sam
     mgs_solver
     householder_solver
     Eigen3::Eigen
+    solver
 )

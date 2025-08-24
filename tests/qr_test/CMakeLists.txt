@@ -2,7 +2,8 @@ add_executable(qr_test run_qr_tests.cpp)
 target_link_libraries(qr_test 
     PUBLIC
     sam # mgs_solver and householder_solver already linked to sam
-    csr_test_utils
+    test_utils
+    solver
 )
 target_compile_options(qr_test
     PRIVATE

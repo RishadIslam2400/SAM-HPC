@@ -1,10 +1,8 @@
 #include "CSRMatrix.hpp"
+#include "linearAlgebra.hpp"
 #include "testlib.hpp"
 
-#include <memory>
-
-void testSortRows()
-{
+void testSortRows() {
     std::cout << "sort rows..." << std::flush;
     /*
         "Standard" matrix
@@ -28,16 +26,15 @@ void testSortRows()
     std::vector<size_t> colIndicesCorrect = {0, 2, 3, 0, 1, 2, 3};
     std::vector<int> valsCorrect = {1, 4, 5, 2, -1, 3, 2};
 
-    m1.sortRows();
-    assertEquals<std::vector<size_t>>(rowPointersCorrect, *(m1.row_pointers), "Incorrect internal row pointers");
-    assertEquals<std::vector<size_t>>(colIndicesCorrect, *(m1.col_indices), "Incorrect internal column indices");
-    assertEquals<std::vector<int>>(valsCorrect, *(m1.vals), "Incorrect internal values");
+    sortRows(m1);
+    assertEquals<std::vector<size_t>>(rowPointersCorrect, m1.m_row_pointers, "Incorrect internal row pointers");
+    assertEquals<std::vector<size_t>>(colIndicesCorrect, m1.m_col_indices, "Incorrect internal column indices");
+    assertEquals<std::vector<int>>(valsCorrect, m1.m_vals, "Incorrect internal values");
 
     std::cout << "OK" << std::endl;
 }
 
-void testTranspose()
-{
+void testTranspose() {
     std::cout << "transpose..." << std::flush;
     /*
        "Standard" matrix
@@ -58,7 +55,7 @@ void testTranspose()
    CSRMatrix<int> m1(3, 4, vals1, rowPointers1, colIndices1);
 
    // Transpose
-   std::shared_ptr<CSRMatrix<int>> m1_transpose = m1.transpose();
+   std::shared_ptr<CSRMatrix<int>> m1_transpose = transpose(m1);
 
    /*
        "Transpose" matrix
@@ -83,8 +80,7 @@ void testTranspose()
    std::cout << "OK" << std::endl;
 }
 
-void testDiagonal()
-{
+void testDiagonal() {
     std::cout << "diagonal..." << std::flush;
 
     /*
@@ -107,16 +103,106 @@ void testDiagonal()
     CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Diagonal
-    std::shared_ptr<std::vector<double>> m1_diag = m1.diagonal();
-    std::shared_ptr<std::vector<double>> m1_diag_without_scaling = m1.diagonal(false);
-    std::shared_ptr<std::vector<double>> m1_diag_for_scaling = m1.diagonal(true);
+    std::vector<double> m1_diag = diagonal<diagonalType::simple>(m1);
+    std::vector<double> m1_diag_for_scaling = diagonal<diagonalType::forScaling>(m1);
 
     std::vector<double> originalDiag = {1, -1, 4, 0};
     std::vector<double> forScalingDiag = {1, 1, 0.5, 1};
 
-    assertEquals<std::vector<double>>(*m1_diag, originalDiag, "Incorrect diagonal");
-    assertEquals<std::vector<double>>(*m1_diag_without_scaling, originalDiag, "Incorrect diagonal");
-    assertEquals<std::vector<double>>(*m1_diag_for_scaling, forScalingDiag, "Incorrect diagonal for scaling");
+    assertEquals<std::vector<double>>(m1_diag, originalDiag, "Incorrect diagonal");
+    assertEquals<std::vector<double>>(m1_diag_for_scaling, forScalingDiag, "Incorrect diagonal for scaling");
 
+    std::cout << "OK" << std::endl;
+}
+
+void testInnerProduct() {
+    std::cout << "inner product..." << std::flush;
+    
+    std::vector<double> a{1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8,
+                          9.9, 10.1, 11.2, 12.3, 13.4, 14.5, 15.6, 16.7};
+    std::vector<double> b{0.5, 1.5, -1.0, 2.0, -0.5, 3.0, -2.0, 1.0,
+                          0.0, -1.0, 0.25, 0.75, -0.25, -0.5, 1.5, 2.5};
+
+    // Compute expected result manually or with a trusted reference
+    double expected = 
+        1.1 * 0.5 + 2.2 * 1.5 + 3.3 * -1.0 + 4.4 * 2.0 +
+        5.5 * -0.5 + 6.6 * 3.0 + 7.7 * -2.0 + 8.8 * 1.0 +
+        9.9 * 0.0 + 10.1 * -1.0 + 11.2 * 0.25 + 12.3 * 0.75 +
+        13.4 * -0.25 + 14.5 * -0.5 + 15.6 * 1.5 + 16.7 * 2.5;
+
+    assertEquals<double>(expected, innerProduct(a, b), "Incorrect inner product.");
+    std::cout << "OK" << std::endl;
+
+}
+
+void testAXPBY() {
+    std::cout << "axpby..." << std::flush;
+    std::vector<double> x = {1.0, 2.0, 3.0, 4.0};
+    std::vector<double> y = {5.0, 6.0, 7.0, 8.0};
+    double a = 2.0;
+    double b = 3.0;
+    std::vector<double> result = {17.0, 22.0, 27.0, 32.0};
+    axpby(a, x, b, y);
+    assertEquals<std::vector<double>>(result, y, "Incorrect axpby function.");
+
+    y = {5.0, 6.0, 7.0, 8.0};
+    result = {2.0, 4.0, 6.0, 8.0};
+    axpby(a, x, 0.0, y);
+    assertEquals<std::vector<double>>(result, y, "Incorrect axpby function.");
+    std::cout << "OK" << std::endl;
+}
+
+void testAXPBYPCZ() {
+    std::cout << "axpbypcz..." << std::flush;
+    std::vector<int> x = {1, 2, 3, 4};
+    std::vector<int> y = {5, 6, 7, 8};
+    std::vector<int> z = {9, 10, 11, 12};
+    int a = 1, b = 2, c = 3;
+    std::vector<int> result = {38, 44, 50, 56};
+    axpbypcz(a, x, b, y, c, z);
+    assertEquals<std::vector<int>>(result, z, "Incorrect axpbypcz function.");
+
+    z = {9, 10, 11, 12};
+    result = {11, 14, 17, 20};
+    c = 0;
+    axpbypcz(a, x, b, y, c, z);
+    assertEquals<std::vector<int>>(result, z, "Incorrect axpbypcz function.");
+    std::cout << "OK" << std::endl;
+}
+
+void testLinComb() {
+    std::cout << "linear combination..." << std::flush;
+    std::vector<std::vector<double>> v = {
+        {1.0, 2.0, 3.0, 4.0},
+        {0.5, 1.5, 2.5, 3.5},
+        {2.0, 1.0, 0.0, -1.0}
+    };
+    std::vector<double> c = {2.0, 1.0, -1.0};
+    std::vector<double> y = {10.0, 20.0, 30.0, 40.0};
+    double alpha = 0.5;
+    std::vector<double> result = {5.5, 14.5, 23.5, 32.5};
+    linComb(c.size(), c, v, alpha, y);
+    assertEquals<std::vector<double>>(result, y, "Incorrect lincomb function");
+    std::cout << "OK" << std::endl;
+}
+
+void testResidual() {
+    std::cout << "residual..." << std::flush;
+    // Matrix:
+    // [1 0 2]
+    // [0 3 0]
+    // [4 0 5]
+    // [0 6 0]
+    std::vector<double> values = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+    std::vector<size_t> col_idx = {0, 2, 1, 0, 2, 1};
+    std::vector<size_t> row_ptr = {0, 2, 3, 5, 6};
+    CSRMatrix<double> A(4, 3, values, row_ptr, col_idx);
+    std::vector<double> x = {1.0, 2.0, 3.0};
+    std::vector<double> rhs = {10.0, 5.0, 25.0, 14.0};
+    std::vector<double> res(4);
+    std::vector<double> result = {3.0, -1.0, 6.0, 2.0};
+
+    residual(rhs, A, x, res);
+    assertEquals<std::vector<double>>(result, res, "Incorrect residual calculation");
     std::cout << "OK" << std::endl;
 }

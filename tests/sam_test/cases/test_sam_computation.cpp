@@ -5,8 +5,7 @@
 #include "helpers.hpp"
 
 
-void testSAMSanityCheck1()
-{
+void testSAMSanityCheck1() {
     std::cout << "SAM Sanity Check 1..." << std::flush;
 
     const size_t targetRows = 5;
@@ -27,15 +26,14 @@ void testSAMSanityCheck1()
 
     SparsityPattern<double, SimplePattern> pattern(sourceMatrix, SimplePattern());
     pattern.computePattern();
+    CSRMatrix<double> map{};
 
-    SparseApproximateMap<double, SimplePattern> testSAM(targetMatrix, sourceMatrix, pattern);
-    testSAM.computeMap();
+    SparseApproximateMap<double, SimplePattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
 
     std::cout << "OK" << std::endl;
 }
 
-void testSAMSanityCheck2()
-{
+void testSAMSanityCheck2() {
     std::cout << "SAM Sanity Check 2..." << std::flush;
 
     const size_t targetRows = 5;
@@ -57,15 +55,14 @@ void testSAMSanityCheck2()
     GlobalThresholdPattern thresh{0.001};
     SparsityPattern<double, GlobalThresholdPattern> pattern(sourceMatrix, thresh);
     pattern.computePattern();
+    CSRMatrix<double> map{};
 
-    SparseApproximateMap<double, GlobalThresholdPattern> testSAM(targetMatrix, sourceMatrix, pattern);
-    testSAM.computeMap();
+    SparseApproximateMap<double, GlobalThresholdPattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
 
     std::cout << "OK" << std::endl;
 }
 
-void testSAMSanityCheck3()
-{
+void testSAMSanityCheck3() {
     std::cout << "SAM Sanity Check 3..." << std::flush;
 
     const size_t targetRows = 5;
@@ -87,15 +84,14 @@ void testSAMSanityCheck3()
     ColumnThresholdPattern thresh{0.9};
     SparsityPattern<double, ColumnThresholdPattern> pattern(sourceMatrix, thresh);
     pattern.computePattern();
+    CSRMatrix<double> map{};
 
-    SparseApproximateMap<double, ColumnThresholdPattern> testSAM(targetMatrix, sourceMatrix, pattern);
-    testSAM.computeMap();
+    SparseApproximateMap<double, ColumnThresholdPattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
 
     std::cout << "OK" << std::endl;
 }
 
-void testSAMSanityCheck4()
-{
+void testSAMSanityCheck4() {
     std::cout << "SAM Sanity Check 4..." << std::flush;
 
     const size_t targetRows = 5;
@@ -117,120 +113,113 @@ void testSAMSanityCheck4()
     FixedNNZPattern thresh{2};
     SparsityPattern<double, FixedNNZPattern> pattern(sourceMatrix, thresh);
     pattern.computePattern();
+    CSRMatrix<double> map{};
 
-    SparseApproximateMap<double, FixedNNZPattern> testSAM(targetMatrix, sourceMatrix, pattern);
-    testSAM.computeMap();
+    SparseApproximateMap<double, FixedNNZPattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
 
     std::cout << "OK" << std::endl;
 }
 
-void testCD2D1()
-{
+void testCD2D1() {
     std::cout << "CD2D Simple Sparsity Pattern..." << std::flush;
 
     CSRMatrix<double> targetMatrix;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/target.txt", targetMatrix);
 
     CSRMatrix<double> sourceMatrix;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/source.txt", sourceMatrix);
 
     CSRMatrix<double> expectedMap;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/cd2dtestmap.txt", expectedMap);
 
     SparsityPattern<double, SimplePattern> pattern(sourceMatrix, SimplePattern());
     pattern.computePattern();
-    SparseApproximateMap<double, SimplePattern> testSAM(targetMatrix, sourceMatrix, pattern);
-    testSAM.computeMap();
+    CSRMatrix<double> map;
+    SparseApproximateMap<double, SimplePattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
 
     // assertEquals<CSRMatrix<double>>(expectedMap, *computedMap);
     std::cout << "OK" << std::endl;
 }
 
-void testCD2D2()
-{
+void testCD2D2() {
     std::cout << "CD2D Global Sparsity Pattern..." << std::flush;
 
     CSRMatrix<double> targetMatrix;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/target.txt", targetMatrix);
 
     CSRMatrix<double> sourceMatrix;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/source.txt", sourceMatrix);
 
     CSRMatrix<double> expectedMap;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/cd2dtestmap.txt", expectedMap);
 
     GlobalThresholdPattern thresh{0.001};
     SparsityPattern<double, GlobalThresholdPattern> pattern(sourceMatrix, thresh);
     pattern.computePattern();
-    SparseApproximateMap<double, GlobalThresholdPattern> testSAM(targetMatrix, sourceMatrix, pattern);
-    testSAM.computeMap();
+    CSRMatrix<double> map{};
+    SparseApproximateMap<double, GlobalThresholdPattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
 
     // assertEquals<CSRMatrix<double>>(expectedMap, *computedMap);
     std::cout << "OK" << std::endl;
 }
 
-void testCD2D3()
-{
+void testCD2D3() {
     std::cout << "CD2D Column Sparsity Pattern..." << std::flush;
 
     CSRMatrix<double> targetMatrix;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/target.txt", targetMatrix);
 
     CSRMatrix<double> sourceMatrix;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/source.txt", sourceMatrix);
 
     CSRMatrix<double> expectedMap;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/cd2dtestmap.txt", expectedMap);
 
-    ColumnThresholdPattern thresh{0.001};
+    ColumnThresholdPattern thresh{0.9};
     SparsityPattern<double, ColumnThresholdPattern> pattern(sourceMatrix, thresh);
     pattern.computePattern();
-    SparseApproximateMap<double, ColumnThresholdPattern> testSAM(targetMatrix, sourceMatrix, pattern);
-    testSAM.computeMap();
+    CSRMatrix<double> map{};
+    SparseApproximateMap<double, ColumnThresholdPattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
 
     // assertEquals<CSRMatrix<double>>(expectedMap, *computedMap);
     std::cout << "OK" << std::endl;
 }
 
-void testCD2D4()
-{
+void testCD2D4() {
     std::cout << "CD2D Fixed NNZ Sparsity Pattern..." << std::flush;
 
     CSRMatrix<double> targetMatrix;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/target.txt", &targetMatrix);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/target.txt", targetMatrix);
 
     CSRMatrix<double> sourceMatrix;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/source.txt", &sourceMatrix);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/source.txt", sourceMatrix);
 
     CSRMatrix<double> expectedMap;
-    read_mat("/home/mds222/SAM-HPC/cd2d_test/cd2dtestmap.txt", &expectedMap);
+    read_mat("/home/rishad/SAM-HPC/cd2d_test/cd2dtestmap.txt", expectedMap);
 
     FixedNNZPattern thresh{3};
     SparsityPattern<double, FixedNNZPattern> pattern(sourceMatrix, thresh);
     pattern.computePattern();
-    SparseApproximateMap<double, FixedNNZPattern> testSAM(targetMatrix, sourceMatrix, pattern);
-    testSAM.computeMap();
+    CSRMatrix<double> map{};
+    SparseApproximateMap<double, FixedNNZPattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
 
     // assertEquals<CSRMatrix<double>>(expectedMap, *computedMap);
     std::cout << "OK" << std::endl;
 }
 
-void testTopOpt1()
-{
+void testTopOpt1() {
     std::cout << "TopOpt Simple Sparsity Pattern...\n" << std::flush;
 
     CSRMatrix<double> targetMatrix;
-    read_mat("/home/mds222/SAM-HPC/top_opt_matrices_small_csr/matrix_1.txt", &targetMatrix);
-    std ::cout << "Target Matrix:\n" << targetMatrix << std::endl;
+    read_mat("/home/rishad/SAM-HPC/top_opt_matrices_small_csr/matrix_1.txt", targetMatrix);
 
     CSRMatrix<double> sourceMatrix;
-    read_mat("/home/mds222/SAM-HPC/top_opt_matrices_small_csr/matrix_2.txt", &sourceMatrix);
-    std::cout << "Source Matrix:\n" << sourceMatrix << std::endl;
+    read_mat("/home/rishad/SAM-HPC/top_opt_matrices_small_csr/matrix_2.txt", sourceMatrix);
 
     SparsityPattern<double, SimplePattern> pattern(sourceMatrix, SimplePattern());
     pattern.computePattern();
-    SparseApproximateMap<double, SimplePattern> testSAM(targetMatrix, sourceMatrix, pattern);
-    testSAM.computeMap();
+    CSRMatrix<double> map{};
+    SparseApproximateMap<double, SimplePattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
 
     std::cout << "OK" << std::endl;
 }

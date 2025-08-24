@@ -5,191 +5,110 @@
 
 #include <atomic>
 
+namespace sam {
+
 void saad_pattern_extension(CSRMatrix<int> &prevPattern, CSRMatrix<int> &nextPattern) {
-    nextPattern.row_num = prevPattern.col_num;
-    nextPattern.col_num = prevPattern.row_num;
-    nextPattern.row_pointers = new std::vector<size_t>(prevPattern.row_num + 1);
+    nextPattern.m_rows = prevPattern.m_cols;
+    nextPattern.m_cols = prevPattern.m_rows;
+    nextPattern.m_row_pointers.resize(prevPattern.m_rows + 1);
 
     // Count the number of nonzero elements in each row of nextPattern
-    if constexpr (SEQUENTIAL) {
-        std::vector<int> marker(nextPattern.col_num, -1);
-        for (size_t ia = 0; ia < prevPattern.row_num; ++ia) {
+    tbb::enumerable_thread_specific<std::vector<int>> local_markers_1(nextPattern.m_cols, -1);
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, prevPattern.m_rows), [&](const tbb::blocked_range<size_t>& r) {
+        std::vector<int>& marker = local_markers_1.local();
+        for (size_t ia = r.begin(); ia < r.end(); ++ia) {
             int count = 0;
-            const size_t rowBegA = (*(prevPattern.row_pointers))[ia];
-            const size_t rowEndA = (*(prevPattern.row_pointers))[ia + 1];
+            const size_t rowBegA = prevPattern.m_row_pointers[ia];
+            const size_t rowEndA = prevPattern.m_row_pointers[ia + 1];
             for (size_t ja = rowBegA; ja < rowEndA; ++ja) {
-                const size_t colIdxA = (*(prevPattern.col_indices))[ja];
-                const size_t rowBegB = (*(prevPattern.row_pointers))[colIdxA];
-                const size_t rowEndB = (*(prevPattern.row_pointers))[colIdxA + 1];
+                const size_t colIdxA = prevPattern.m_col_indices[ja];
+                const size_t rowBegB = prevPattern.m_row_pointers[colIdxA];
+                const size_t rowEndB = prevPattern.m_row_pointers[colIdxA + 1];
 
                 for (size_t jb = rowBegB; jb < rowEndB; ++jb) {
-                    const size_t colIdxB = (*(prevPattern.col_indices))[jb];
+                    const size_t colIdxB = prevPattern.m_col_indices[jb];
                     if (marker[colIdxB] != static_cast<int>(ia)) {
                         marker[colIdxB] = static_cast<int>(ia);
                         ++count;
                     }
                 }
             }
-            (*(nextPattern.row_pointers))[ia + 1] = count;
+            nextPattern.m_row_pointers[ia + 1] = count;
         }
-    } else {
-        auto f = [&](size_t start, size_t end) {
-            std::vector<int> marker(nextPattern.col_num, -1);
-            for (size_t ia = start; ia < end; ++ia) {
-                int count = 0;
-                const size_t rowBegA = (*(prevPattern.row_pointers))[ia];
-                const size_t rowEndA = (*(prevPattern.row_pointers))[ia + 1];
-                for (size_t ja = rowBegA; ja < rowEndA; ++ja) {
-                    const size_t colIdxA = (*(prevPattern.col_indices))[ja];
-                    const size_t rowBegB = (*(prevPattern.row_pointers))[colIdxA];
-                    const size_t rowEndB = (*(prevPattern.row_pointers))[colIdxA + 1];
+    });
 
-                    for (size_t jb = rowBegB; jb < rowEndB; ++jb) {
-                        const size_t colIdxB = (*(prevPattern.col_indices))[jb];
-                        if (marker[colIdxB] != static_cast<int>(ia)) {
-                            marker[colIdxB] = static_cast<int>(ia);
-                            ++count;
-                        }
-                    }
-                }
-                (*(nextPattern.row_pointers))[ia + 1] = count;
-            }
-        };
-
-        launchThreads(prevPattern.row_num, f);
-    }
-
-    nextPattern.nnz = nextPattern.scanRowSize();
-    nextPattern.col_indices = new std::vector<size_t>(nextPattern.nnz, 0);
-    nextPattern.vals = new std::vector<int>(nextPattern.nnz, 1);
+    nextPattern.m_nnz = nextPattern.scanRowSize();
+    nextPattern.m_col_indices.resize(nextPattern.m_nnz, 0);
+    nextPattern.m_vals.resize(nextPattern.m_nnz, 1);
 
     // Compute the column indices
-    if constexpr (SEQUENTIAL) {
-        std::vector<int> marker(nextPattern.col_num, -1);
-        for (size_t ia = 0; ia < nextPattern.row_num; ++ia) {
-            const size_t rowBeg = (*(nextPattern.row_pointers))[ia];
+    local_markers_1.clear();
+    // tbb::enumerable_thread_specific<std::vector<int>> local_markers_2(nextPattern.m_cols, -1);
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, nextPattern.m_rows), [&](const tbb::blocked_range<size_t>& r) {
+        std::vector<int>& marker = local_markers_1.local();
+        for (size_t ia = r.begin(); ia < r.end(); ++ia) {
+            const size_t rowBeg = nextPattern.m_row_pointers[ia];
             size_t rowEnd = rowBeg;
-            for (size_t ja = (*(prevPattern.row_pointers))[ia], ea = (*(prevPattern.row_pointers))[ia + 1]; ja < ea; ++ja) {
-                size_t colIdxA = (*(prevPattern.col_indices))[ja];
 
-                for (size_t jb = (*(prevPattern.row_pointers))[colIdxA], eb = (*(prevPattern.row_pointers))[colIdxA + 1]; jb < eb; ++jb) {
-                    size_t colIdxB = (*(prevPattern.col_indices))[jb];
+            for (size_t ja = prevPattern.m_row_pointers[ia], ea = prevPattern.m_row_pointers[ia + 1]; ja < ea; ++ja) {
+                size_t colIdxA = prevPattern.m_col_indices[ja];
+
+                for (size_t jb = prevPattern.m_row_pointers[colIdxA], eb = prevPattern.m_row_pointers[colIdxA + 1]; jb < eb; ++jb) {
+                    size_t colIdxB = prevPattern.m_col_indices[jb];
                     if (marker[colIdxB] < static_cast<int>(rowBeg)) {
                         marker[colIdxB] = static_cast<int>(rowEnd);
-                        (*(nextPattern.col_indices))[rowEnd] = colIdxB;
+                        nextPattern.m_col_indices[rowEnd] = colIdxB;
                         ++rowEnd;
                     }
                 }
             }
 
-            std::sort(nextPattern.col_indices->begin() + rowBeg, nextPattern.col_indices->begin() + rowEnd);
-        }
-    } else {
-        auto f = [&](size_t start, size_t end) {
-            std::vector<int> marker(nextPattern.col_num, -1);
-            for (size_t ia = start; ia < end; ++ia) {
-                const size_t rowBeg = (*(nextPattern.row_pointers))[ia];
-                size_t rowEnd = rowBeg;
-                for (size_t ja = (*(prevPattern.row_pointers))[ia], ea = (*(prevPattern.row_pointers))[ia + 1]; ja < ea; ++ja) {
-                    size_t colIdxA = (*(prevPattern.col_indices))[ja];
-
-                    for (size_t jb = (*(prevPattern.row_pointers))[colIdxA], eb = (*(prevPattern.row_pointers))[colIdxA + 1]; jb < eb; ++jb) {
-                        size_t colIdxB = (*(prevPattern.col_indices))[jb];
-                        if (marker[colIdxB] < static_cast<int>(rowBeg)) {
-                            marker[colIdxB] = static_cast<int>(rowEnd);
-                            (*(nextPattern.col_indices))[rowEnd] = colIdxB;
-                            ++rowEnd;
-                        }
-                    }
-                }
-
-                std::sort(nextPattern.col_indices->begin() + rowBeg, nextPattern.col_indices->begin() + rowEnd);
+            for (size_t k = rowBeg; k < rowEnd; ++k) {
+                marker[nextPattern.m_col_indices[k]] = -1;
             }
-        };
 
-        launchThreads(nextPattern.row_num, f);
-    }
+            std::sort(nextPattern.m_col_indices.begin() + rowBeg, nextPattern.m_col_indices.begin() + rowEnd);
+        }
+    });
 }
 
 template <bool needOut>
-size_t* mergeRows(std::span<const size_t> row1, std::span<const size_t> row2, size_t* result) {
-    auto row1_it = row1.begin();
-    auto row2_it = row2.begin();
+size_t* mergeRows(const size_t* row1, const size_t* row1_end, const size_t* row2, const size_t* row2_end, size_t* result) {
+    while (row1 != row1_end && row2 != row2_end) {
+        const size_t r1 = *row1;
+        const size_t r2 = *row2;
 
-    while (row1_it != row1.end() && row2_it != row2.end()) {
-        if (*row1_it < *row2_it) {
-            if constexpr (needOut) {
-                *result = *row1_it;
-            }
-            ++row1_it;
-        } else if (*row1_it == *row2_it) {
-            if constexpr (needOut) {
-                *result = *row1_it;
-            }
-            ++row1_it;
-            ++row2_it;
+        if (r1 < r2) {
+            if constexpr (needOut) *result = r1;
+            ++row1;
+        } else if (r1 == r2) {
+            if constexpr (needOut) *result = r1;
+            ++row1;
+            ++row2;
         } else {
-            if constexpr (needOut) {
-                *result = *row2_it;
-            }
-            ++row2_it;
+            if constexpr (needOut) *result = r2;
+            ++row2;
         }
         ++result;
     }
 
     if constexpr (needOut) {
-        if (row1_it < row1.end()) {
-            return std::copy(row1_it, row1.end(), result);
-        } else if (row2_it < row2.end()) {
-            return std::copy(row2_it, row2.end(), result);
+        if (row1 < row1_end) {
+            return std::copy(row1, row1_end, result);
+        } else if (row2 < row2_end) {
+            return std::copy(row2, row2_end, result);
         } else {
             return result;
         }
     } else {
-        return result + (row1.end() - row1_it) + (row2.end() - row2_it);
+        return result + (row1_end - row1) + (row2_end - row2);
     }
-    return size_t(); // Control should never reach here
 }
 
-size_t* mergeRowsComputeIndices(std::span<const size_t> row_colind1, std::span<const size_t> row_colind2, size_t* crow_colind) {
-    auto row_colind1_it = row_colind1.begin();
-    auto row_colind2_it = row_colind2.begin();
-
-    while (row_colind1_it != row_colind1.end() && row_colind2_it != row_colind2.end()) {
-        const size_t col1 = *row_colind1_it;
-        const size_t col2 = *row_colind2_it;
-
-        if (col1 < col2) {
-            ++row_colind1_it;
-            *crow_colind = col1;
-        } else if (col1 == col2) {
-            ++row_colind1_it;
-            ++row_colind2_it;
-
-            *crow_colind = col1;
-        }
-        else {
-            ++row_colind2_it;
-            *crow_colind = col2;
-        }
-
-        ++crow_colind;
-    }
-
-    while (row_colind1_it < row_colind1.end()) {
-        *crow_colind++ = *row_colind1_it++;
-    }
-
-    while (row_colind2_it < row_colind2.end()) {
-        *crow_colind++ = *row_colind2_it++;
-    }
-
-    return crow_colind;
-}
-
-size_t prodRowWidth(std::span<const size_t> arow, const std::vector<size_t> &browptr, const std::vector<size_t> &bcolind,
-                    size_t* temp_col1, size_t* temp_col2, size_t* temp_col3) {
-    const size_t nrows = arow.size();
+size_t prodRowWidth(const size_t *arow, const size_t *arow_end, const size_t *bptr,
+                    const size_t *bcol, size_t *tmp_row1, size_t *tmp_row2, size_t *tmp_row3)
+{
+    const size_t nrows = arow_end - arow;
 
     // No rows merge, nothing to do
     if (nrows == 0)
@@ -197,17 +116,16 @@ size_t prodRowWidth(std::span<const size_t> arow, const std::vector<size_t> &bro
 
     // Single row, just copy it to output
     if (nrows == 1)
-        return browptr[arow[0] + 1] - browptr[arow[0]];
+        return bptr[*arow + 1] - bptr[*arow];
 
     // Two rows, merge them
     if (nrows == 2) {
         const size_t row1 = arow[0];
         const size_t row2 = arow[1];
 
-        std::span<const size_t> brow1(bcolind.begin() + browptr[row1], browptr[row1 + 1] - browptr[row1]);
-        std::span<const size_t> brow2(bcolind.begin() + browptr[row2], browptr[row2 + 1] - browptr[row2]);
-
-        return mergeRows<false>(brow1, brow2, temp_col1) - temp_col1;
+        return mergeRows<false>(bcol + bptr[row1], bcol + bptr[row1 + 1],
+                                bcol + bptr[row2], bcol + bptr[row2 + 1],
+                                tmp_row1) - tmp_row1;
     }
 
     /**
@@ -216,46 +134,45 @@ size_t prodRowWidth(std::span<const size_t> arow, const std::vector<size_t> &bro
      * Merge rows by pairs, then merge the results together. When merging two rows, the result is always wider (or equal).
      * Merging by pairs allows to work with short rows as often as possible.
      */
-    auto arow_it = arow.begin();
     // merge first two rows
-    const auto r1 = *arow_it++;
-    std::span<const size_t> brow1(bcolind.begin() + browptr[r1], browptr[r1 + 1] - browptr[r1]);
-    const auto r2 = *arow_it++;
-    std::span<const size_t> brow2(bcolind.begin() + browptr[r2], browptr[r2 + 1] - browptr[r2]);
+    size_t r1 = *arow++;
+    size_t r2 = *arow++;
 
-    size_t ncols1 = mergeRows<true>(brow1, brow2, temp_col1) - temp_col1;
+    size_t ncols1 = mergeRows<true>(bcol + bptr[r1], bcol + bptr[r1 + 1],
+                                    bcol + bptr[r2], bcol + bptr[r2 + 1],
+                                    tmp_row1) - tmp_row1;
 
     // Go by pairs
-    while (arow_it + 1 < arow.end()) {
-        const auto a1 = *arow_it++;
-        const auto a2 = *arow_it++;
-        std::span<const size_t> browfirst(bcolind.begin() + browptr[a1], browptr[a1 + 1] - browptr[a1]);
-        std::span<const size_t> browsecond(bcolind.begin() + browptr[a2], browptr[a2 + 1] - browptr[a2]);
+    while (arow + 1 < arow_end) {
+        r1 = *arow++;
+        r2 = *arow++;
 
-        size_t ncols2 = mergeRows<true>(browfirst, browsecond, temp_col2) - temp_col2;
+        size_t ncols2 = mergeRows<true>(bcol + bptr[r1], bcol + bptr[r1 + 1],
+                                        bcol + bptr[r2], bcol + bptr[r2 + 1],
+                                        tmp_row2) - tmp_row2;
 
-        if (arow_it == arow.end()) {
-            std::span<const size_t> temp_col1_subspan(temp_col1, ncols1);
-            std::span<const size_t> temp_col2_subspan(temp_col2, ncols2);
-            return mergeRows<false>(temp_col1_subspan, temp_col2_subspan, temp_col3) - temp_col3;
+        if (arow == arow_end) {
+            return mergeRows<false>(tmp_row1, tmp_row1 + ncols1,
+                                    tmp_row2, tmp_row2 + ncols2,
+                                    tmp_row3) - tmp_row3;
         } else {
-            std::span<const size_t> temp_col1_subspan(temp_col1, ncols1);
-            std::span<const size_t> temp_col2_subspan(temp_col2, ncols2);
-            ncols1 = mergeRows<true>(temp_col1_subspan, temp_col2_subspan, temp_col3) - temp_col3;
-            std::swap(temp_col1, temp_col3);
+            ncols1 = mergeRows<true>(tmp_row1, tmp_row1 + ncols1,
+                                     tmp_row2, tmp_row2 + ncols2,
+                                     tmp_row3) - tmp_row3;
+            std::swap(tmp_row1, tmp_row3);
         }
     }
 
     // Merge the tail
-    const auto tail = *arow_it++;
-    std::span<const size_t> browtail(bcolind.begin() + browptr[tail], browptr[tail + 1] - browptr[tail]);
-    std::span<const size_t> temp_col1_subspan(temp_col1, ncols1);
-    return mergeRows<false>(temp_col1_subspan, browtail, temp_col2) - temp_col2;
+    const size_t tail = *arow++;
+    return mergeRows<false>(tmp_row1, tmp_row1 + ncols1,
+                            bcol + bptr[tail], bcol + bptr[tail + 1],
+                            tmp_row2) - tmp_row2;
 }
 
-void prodRow(std::span<const size_t> arow_colind, const std::vector<size_t> &browptr, const std::vector<size_t> &bcolind,
-             size_t* crow_colind, size_t* temp_col2, size_t* temp_col3) {
-    const size_t nrows = arow_colind.size();
+void prodRow(const size_t* arow, const size_t* arow_end, const size_t* bptr, const size_t* bcol,
+             size_t* out_row, size_t* tmp_row2, size_t* tmp_row3) {
+    const size_t nrows = arow_end - arow;
 
     // No rows to merge, nothing to do
     if (nrows == 0)
@@ -263,13 +180,13 @@ void prodRow(std::span<const size_t> arow_colind, const std::vector<size_t> &bro
 
     // Single row, just copy it to output
     if (nrows == 1) {
-        const size_t idx = arow_colind[0];
+        const size_t idx = *arow;
 
-        auto browStart = bcolind.begin() + browptr[idx];
-        const auto browEnd = bcolind.begin() + browptr[idx + 1];
+        const size_t* browStart = bcol + bptr[idx];
+        const size_t* browEnd = bcol + bptr[idx + 1];
 
         while (browStart != browEnd) {
-            *crow_colind++ = *browStart++;
+            *out_row++ = *browStart++;
         }
 
         return;
@@ -277,12 +194,11 @@ void prodRow(std::span<const size_t> arow_colind, const std::vector<size_t> &bro
 
     // Two rows, merge them
     if (nrows == 2) {
-        const size_t row_colind1 = arow_colind[0];
-        const size_t row_colind2 = arow_colind[1];
+        const size_t row_colind1 = arow[0];
+        const size_t row_colind2 = arow[1];
 
-        std::span<const size_t> brow_colind1(bcolind.begin() + browptr[row_colind1], browptr[row_colind1 + 1] - browptr[row_colind1]);
-        std::span<const size_t> brow_colind2(bcolind.begin() + browptr[row_colind2], browptr[row_colind2 + 1] - browptr[row_colind2]);
-        mergeRowsComputeIndices(brow_colind1, brow_colind2, crow_colind);
+        mergeRows<true>(bcol + bptr[row_colind1], bcol + bptr[row_colind1 + 1],
+                        bcol + bptr[row_colind2], bcol + bptr[row_colind2 + 1], out_row);
 
         return;
     }
@@ -294,114 +210,117 @@ void prodRow(std::span<const size_t> arow_colind, const std::vector<size_t> &bro
      * Merging by pairs allows to work with short rows as often as possible.
      */
     // Merge first two rows
-    auto arow_colind_it = arow_colind.begin();
-    size_t acol1 = *arow_colind_it++;
-    size_t acol2 = *arow_colind_it++;
+    size_t r1 = *arow++;
+    size_t r2 = *arow++;
 
-    size_t *temp_col1 = crow_colind;
+    size_t *tmp_row1 = out_row;
 
-    std::span<const size_t> brow_colind1(bcolind.begin() + browptr[acol1], browptr[acol1 + 1] - browptr[acol1]);
-    std::span<const size_t> brow_colind2(bcolind.begin() + browptr[acol2], browptr[acol2 + 1] - browptr[acol2]);
-
-    size_t c_numcol1 = mergeRowsComputeIndices(brow_colind1, brow_colind2, temp_col1) - temp_col1;
+    size_t c_numcol1 = mergeRows<true>(bcol + bptr[r1], bcol + bptr[r1 + 1],
+                                       bcol + bptr[r2], bcol + bptr[r2 + 1],
+                                       tmp_row1) - tmp_row1;
 
     // Go by pairs
-    while (arow_colind_it + 1 < arow_colind.end()) {
-        acol1 = *arow_colind_it++;
-        acol2 = *arow_colind_it++;
+    while (arow + 1 < arow_end) {
+        r1 = *arow++;
+        r2 = *arow++;
 
-        std::span<const size_t> brow_colindfirst(bcolind.begin() + browptr[acol1], browptr[acol1 + 1] - browptr[acol1]);
-        std::span<const size_t> brow_colindsecond(bcolind.begin() + browptr[acol2], browptr[acol2 + 1] - browptr[acol2]);
+        size_t c_numcol2 = mergeRows<true>(bcol + bptr[r1], bcol + bptr[r1 + 1],
+                                           bcol + bptr[r2], bcol + bptr[r2 + 1],
+                                           tmp_row2) - tmp_row2;
 
-        size_t c_numcol2 = mergeRowsComputeIndices(brow_colindfirst, brow_colindsecond, temp_col2) - temp_col2;
+        c_numcol1 = mergeRows<true>(tmp_row1, tmp_row1 + c_numcol1,
+                                    tmp_row2, tmp_row2 + c_numcol2,
+                                    tmp_row3) - tmp_row3;
 
-        std::span<const size_t> temp_col1_subspan(temp_col1, c_numcol1);
-        std::span<const size_t> temp_col2_subspan(temp_col2, c_numcol2);
-        c_numcol1 = mergeRowsComputeIndices(temp_col1_subspan, temp_col2_subspan, temp_col3) - temp_col3;
-
-        std::swap(temp_col3, temp_col1);
+        std::swap(tmp_row3, tmp_row1);
     }
 
     // Merge the tail
-    if (arow_colind_it < arow_colind.end()) {
-        acol2 = *arow_colind_it++;
-        std::span<const size_t> brow_tail(bcolind.begin() + browptr[acol2], browptr[acol2 + 1] - browptr[acol2]);
+    if (arow < arow_end) {
+        r2 = *arow++;
 
-        std::span<size_t> temp_col1_subspan(temp_col1, c_numcol1);
-        c_numcol1 = mergeRowsComputeIndices(temp_col1_subspan, brow_tail, temp_col3) - temp_col3;
+        c_numcol1 = mergeRows<true>(tmp_row1, tmp_row1 + c_numcol1,
+                                    bcol + bptr[r2], bcol + bptr[r2 + 1],
+                                    tmp_row3) - tmp_row3;
 
-        std::swap(temp_col3, temp_col1);
+        std::swap(tmp_row3, tmp_row1);
     }
 
-    if (temp_col1 != crow_colind) {
-        std::copy(temp_col1, temp_col1 + c_numcol1, crow_colind);
+    if (tmp_row1 != out_row) {
+        std::copy(tmp_row1, tmp_row1 + c_numcol1, out_row);
     }
 }
 
 void rmerge_pattern_extension(CSRMatrix<int> &prevPattern, CSRMatrix<int> &nextPattern) {
-    std::atomic_size_t maxRowWidth = 0;
+    nextPattern.m_rows = prevPattern.m_rows;
+    nextPattern.m_cols = prevPattern.m_cols;
+    nextPattern.m_row_pointers.resize(nextPattern.m_rows + 1, 0);
 
-    auto countRowWidth = [&](size_t start, size_t end) {
-        size_t threadMax = 0;
-        for (size_t i = start; i < end; ++i) {
-            const size_t rowStart = (*(prevPattern.row_pointers))[i];
-            const size_t rowEnd = (*(prevPattern.row_pointers))[i + 1];
-            size_t rowWidth = 0;
-    
-            for (size_t j = rowStart; j < rowEnd; ++j) {
-                size_t colIdx = (*(prevPattern.col_indices))[j];
-                rowWidth += (*(prevPattern.row_pointers))[colIdx + 1] - (*(prevPattern.row_pointers))[colIdx];
+    size_t maxRowWidth = tbb::parallel_reduce(
+        tbb::blocked_range<size_t>(0, prevPattern.m_rows),
+        size_t(0), // Identity for max operation
+        [&](const tbb::blocked_range<size_t>& r, size_t localMax) -> size_t {
+            for (size_t i = r.begin(); i < r.end(); ++i) {
+                size_t rowWidth = 0;
+                for (size_t j = prevPattern.m_row_pointers[i]; j < prevPattern.m_row_pointers[i + 1]; ++j) {
+                    size_t colIdx = prevPattern.m_col_indices[j];
+                    rowWidth += prevPattern.m_row_pointers[colIdx + 1] - prevPattern.m_row_pointers[colIdx];
+                }
+                localMax = std::max(localMax, rowWidth);
             }
+            return localMax;
+        },
+        [](size_t a, size_t b) { return std::max(a, b); } // Join operation
+    );
 
-            threadMax = std::max(threadMax, rowWidth);
-        }
-
-        if (threadMax > maxRowWidth) {
-            maxRowWidth = threadMax;
-        }
-    };
-
-    launchThreads(prevPattern.row_num, countRowWidth);
-
-    // Temporary row of C for each thread. For now the number of threads is 1
-    std::vector<std::vector<size_t>> tempCol(num_threads, std::vector<size_t>(3 * maxRowWidth, 0));
-
-    nextPattern.row_num = prevPattern.row_num;
-    nextPattern.col_num = prevPattern.col_num;
-    nextPattern.row_pointers = new std::vector<size_t>(nextPattern.row_num + 1, 0);
-
-    auto fillRowPointers = [&](size_t start, size_t end, int thread_id) {
-        for (size_t i = start; i < end; ++i) {
-            const size_t rowStart = (*(prevPattern.row_pointers))[i];
-            const size_t rowEnd = (*(prevPattern.row_pointers))[i + 1];
-            std::span<const size_t> arow(prevPattern.col_indices->data() + rowStart, rowEnd - rowStart);
-            (*(nextPattern.row_pointers))[i + 1] = prodRowWidth(arow, *(prevPattern.row_pointers), *(prevPattern.col_indices),
-                                                                tempCol[thread_id].data(), tempCol[thread_id].data() + maxRowWidth, tempCol[thread_id].data() + 2 * maxRowWidth);
-        }
-    };
-
-    launchThreadsWithID(nextPattern.row_num, fillRowPointers);
-
-    nextPattern.nnz = nextPattern.scanRowSize();
-    nextPattern.col_indices = new std::vector<size_t>(nextPattern.nnz, 0);
-    nextPattern.vals = new std::vector<int>(nextPattern.nnz, 1);
-
-    auto computeColumnIndices = [&](size_t start, size_t end, int thread_id) {
-        for (size_t i = start; i < end; ++i) {
-            const size_t rowStart = (*(prevPattern.row_pointers))[i];
-            const size_t rowEnd = (*(prevPattern.row_pointers))[i + 1];
-            std::span<const size_t> arow_colind(prevPattern.col_indices->begin() + rowStart, rowEnd - rowStart);
     
-            size_t *crow_colind = nextPattern.col_indices->data() + (*(nextPattern.row_pointers))[i];
-    
-            prodRow(arow_colind, *(prevPattern.row_pointers), *(prevPattern.col_indices), crow_colind, tempCol[thread_id].data(), tempCol[thread_id].data() + maxRowWidth);
+
+    // Temporary row of C for each thread.
+    struct internal_storage {
+        std::vector<size_t> tempCol;
+        internal_storage(size_t maxWidth) {
+            tempCol.resize(3 * maxWidth);
         }
     };
+    tbb::enumerable_thread_specific<internal_storage> local_storages(maxRowWidth);
 
-    launchThreadsWithID(nextPattern.row_num, computeColumnIndices);
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, nextPattern.m_rows), 
+        [&](const tbb::blocked_range<size_t>& r) {
+            internal_storage& ls = local_storages.local();
+            for (size_t i = r.begin(); i < r.end(); ++i) {
+                const size_t rowStart = prevPattern.m_row_pointers[i];
+                const size_t rowEnd = prevPattern.m_row_pointers[i + 1];
+                nextPattern.m_row_pointers[i + 1] = prodRowWidth(
+                    prevPattern.m_col_indices.data() + rowStart, prevPattern.m_col_indices.data() + rowEnd,
+                    prevPattern.m_row_pointers.data(), prevPattern.m_col_indices.data(),
+                    ls.tempCol.data(), ls.tempCol.data() + maxRowWidth, 
+                    ls.tempCol.data() + 2 * maxRowWidth);
+            }
+        }
+    );
+
+    nextPattern.m_nnz = nextPattern.scanRowSize();
+    nextPattern.m_col_indices.resize(nextPattern.m_nnz, 0);
+    nextPattern.m_vals.resize(nextPattern.m_nnz, 1);
+
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, nextPattern.m_rows),
+        [&](const tbb::blocked_range<size_t>& r) {
+            internal_storage& ls = local_storages.local();
+            for (size_t i = r.begin(); i < r.end(); ++i) {
+                const size_t rowStart = prevPattern.m_row_pointers[i];
+                const size_t rowEnd = prevPattern.m_row_pointers[i + 1];
+                prodRow(
+                    prevPattern.m_col_indices.data() + rowStart, prevPattern.m_col_indices.data() + rowEnd,
+                    prevPattern.m_row_pointers.data(), prevPattern.m_col_indices.data(),
+                    nextPattern.m_col_indices.data() + nextPattern.m_row_pointers[i],
+                    ls.tempCol.data(), ls.tempCol.data() + maxRowWidth);
+            }
+        }
+    );
 }
 
 void extend_pattern(CSRMatrix<int> &S, const int level) {
+
     std::vector<CSRMatrix<int>> finalPatterns(level - 1);
 
     for (int l = 0; l < level - 1; ++l) {
@@ -422,3 +341,5 @@ void extend_pattern(CSRMatrix<int> &S, const int level) {
 
     swap(S, finalPatterns.back());
 }
+
+} // namespace sam

@@ -1,5 +1,5 @@
 add_executable(csr_test run_csr_tests.cpp)
-target_link_libraries(csr_test PUBLIC csr_test_utils)
+target_link_libraries(csr_test PUBLIC test_utils)
 
 target_compile_options(csr_test
     PRIVATE

@@ -1,5 +1,5 @@
 add_executable(sam_test run_sam_tests.cpp)
-target_link_libraries(sam_test PUBLIC sam common csr_test_utils)
+target_link_libraries(sam_test PUBLIC sam common solver preconditioner test_utils)
 target_compile_options(sam_test
     PRIVATE
 

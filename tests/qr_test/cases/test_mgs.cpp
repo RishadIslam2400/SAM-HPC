@@ -1,11 +1,9 @@
 #include "mgsQR.hpp"
 #include "testlib.hpp"
-#include "helpers.hpp"
 
 #include <iostream>
 
-void testMgsQRSolve1()
-{
+void testMgsQRSolve1() {
     std::cout << "Sanity Check..." << std::flush;
     std::vector<std::vector<double>> A = {
         {2, 1},
@@ -20,8 +18,7 @@ void testMgsQRSolve1()
     std::cout << "OK" << std::endl;
 }
 
-void testMgsQRSolve2()
-{
+void testMgsQRSolve2() {
     std::cout << "Orthogoanl Matrix..." << std::flush;
     std::vector<std::vector<double>> A = {
         {1, 0},
@@ -36,8 +33,7 @@ void testMgsQRSolve2()
     std::cout << "OK" << std::endl;
 }
 
-void testMgsQRSolve3()
-{
+void testMgsQRSolve3() {
     std::cout << "Square Matrix Full Rank..." << std::flush;
     std::vector<std::vector<double>> A = {
         {5, 4, 4},
@@ -53,8 +49,7 @@ void testMgsQRSolve3()
     std::cout << "OK" << std::endl;
 }
 
-void testMgsQRSolve4()
-{
+void testMgsQRSolve4() {
     std::cout << "Diaognal Dominant Matrix..." << std::flush;
     std::vector<std::vector<double>> A = {
         {10, 2, 2},
@@ -71,8 +66,7 @@ void testMgsQRSolve4()
 }
 
 
-void testMgsQRSolve5()
-{
+void testMgsQRSolve5() {
     std::cout << "Overdetermined Linear System, Full Rank..." << std::flush;
     std::vector<std::vector<double>> A = {
         {1, 1, 1, 1},
@@ -87,8 +81,7 @@ void testMgsQRSolve5()
     std::cout << "OK" << std::endl;
 }
 
-void testMgsQRSolve6()
-{
+void testMgsQRSolve6() {
     std::cout << "Nearly Singular Matrix..." << std::flush;
     std::vector<std::vector<double>> A = {
         {1, 1},

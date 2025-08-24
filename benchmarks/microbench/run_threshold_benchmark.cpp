@@ -13,10 +13,12 @@ int main(int argc, char** argv) {
     // Parallel benchmarking
     // Mapping the fifth matrix A5 to the initial matrix A0
     // Read the target matrix
-    CSRMatrix<double> target = read_mat<double>(cfg.target_file.c_str());
+    std::string filepath = cfg.matrix_dir + "matrix_1.txt";
+    CSRMatrix<double> target = read_mat<double>(filepath.c_str());
     std::cout << "Target matrix : A0" << std::endl;
 
-    CSRMatrix<double> source = read_mat<double>(cfg.source_file.c_str());
+    filepath = cfg.matrix_dir + "matrix_6.txt";
+    CSRMatrix<double> source = read_mat<double>(filepath.c_str());
     std::cout << "Source matrix: A5" << std::endl;
 
     // Benchmarking SAM with Column threshold with different threhold parameters
@@ -30,8 +32,8 @@ int main(int argc, char** argv) {
         pattern.computePattern();
 
         // Compute map
-        SparseApproximateMap<double, ColumnThresholdPattern> map(target, source, pattern);
-        map.computeMap();
+        CSRMatrix<double> map;
+        SparseApproximateMap<double, ColumnThresholdPattern>::computeMap(target, source, pattern, map);
     }
     std::cout << (timer.elapsed() / cfg.iters) / 1000000.0 << " s" << std::endl;
 
@@ -59,8 +61,8 @@ int main(int argc, char** argv) {
         pattern.computePattern();
 
         // Compute map
-        SparseApproximateMap<double, ColumnThresholdPattern> map(target, source, pattern);
-        map.computeMap();
+        CSRMatrix<double> map;
+        SparseApproximateMap<double, ColumnThresholdPattern>::computeMap(target, source, pattern, map);
     }
     std::cout << (timer.elapsed() / cfg.iters) / 1000000.0 << " s" << std::endl;
 
@@ -88,8 +90,8 @@ int main(int argc, char** argv) {
         pattern.computePattern();
 
         // Compute map
-        SparseApproximateMap<double, ColumnThresholdPattern> map(target, source, pattern);
-        map.computeMap();
+        CSRMatrix<double> map;
+        SparseApproximateMap<double, ColumnThresholdPattern>::computeMap(target, source, pattern, map);
     }
     std::cout << (timer.elapsed() / cfg.iters) / 1000000.0 << " s" << std::endl;
 
@@ -117,8 +119,8 @@ int main(int argc, char** argv) {
         pattern.computePattern();
 
         // Compute map
-        SparseApproximateMap<double, ColumnThresholdPattern> map(target, source, pattern);
-        map.computeMap();
+        CSRMatrix<double> map;
+        SparseApproximateMap<double, ColumnThresholdPattern>::computeMap(target, source, pattern, map);
     }
     std::cout << (timer.elapsed() / cfg.iters) / 1000000.0 << " s" << std::endl;
 
@@ -146,8 +148,8 @@ int main(int argc, char** argv) {
         pattern.computePattern();
 
         // Compute map
-        SparseApproximateMap<double, ColumnThresholdPattern> map(target, source, pattern);
-        map.computeMap();
+        CSRMatrix<double> map;
+        SparseApproximateMap<double, ColumnThresholdPattern>::computeMap(target, source, pattern, map);
     }
     std::cout << (timer.elapsed() / cfg.iters) / 1000000.0 << " s" << std::endl;
 

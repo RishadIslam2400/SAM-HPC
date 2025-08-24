@@ -3,6 +3,7 @@
 #include "cases/test_mgs.cpp"
 #include "cases/test_householder.cpp"
 #include "cases/test_eigen.cpp"
+#include "cases/test_qr_opt.cpp"
 
 int main(int argc, char** argv)
 {
@@ -29,4 +30,9 @@ int main(int argc, char** argv)
     testEigenQRSolve4();
     testEigenQRSolve5();
     testEigenQRSolve6();
+
+    std::cout << "\nRunning 1D Vector QR tests..." << std::endl;
+    test_factorization();
+    test_solve_overdetermined();
+    test_solve_underdetermined();
 }

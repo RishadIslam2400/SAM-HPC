@@ -21,6 +21,10 @@ set(SUBDIRS
     householder_solver
     common
     tools
+    solver
+    preconditioner
+    relaxation
+    coarsening
 )
 
 foreach(subdir ${SUBDIRS})
