@@ -4,9 +4,9 @@ set -e # Exit immediately if a command exits with a non-zero status.
 # Configuration
 # Use command-line arguments with defaults.
 # Usage: ./run_benchmark.sh [MATRIX_DIR] [RHS_DIR] [K]
-DEFAULT_MATRIX_DIR="/home/rishad/SAM-HPC/top_opt_matrices_small_csr/"
-DEFAULT_RHS_DIR="/home/rishad/SAM-HPC/top_opt_rhs_small/"
-DEFAULT_K=20
+DEFAULT_MATRIX_DIR="/home/mds222/SAM-HPC/top_opt_matrices_paper_small_csr/"
+DEFAULT_RHS_DIR="/home/mds222/SAM-HPC/top_opt_paper_rhs_small/"
+DEFAULT_K=10
 
 MATRIX_DIR="${1:-$DEFAULT_MATRIX_DIR}"
 RHS_DIR="${2:-$DEFAULT_RHS_DIR}"
@@ -17,13 +17,14 @@ TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
 OUTPUT_FILE="top_opt_results_${TIMESTAMP}.txt"
 BENCHMARK_EXE="./build/benchmarks/top_opt_bench"
 THREADS="1 2 4 8 16 32 64 96 128 160"
+#THREADS="64"
 
 # Build the project only if the executable doesn't exist.
 build_if_needed() {
     if [ ! -f "$BENCHMARK_EXE" ]; then
         echo "Building SAM HPC..."
-        export CC=clang-20
-        export CXX=clang++-20
+        export CC=gcc-12
+        export CXX=g++-12
         cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=off -DENABLE_BENCHMARKS=on
         cmake --build build
     else

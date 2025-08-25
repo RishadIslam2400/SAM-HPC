@@ -33,7 +33,7 @@ struct ruge_stuben {
         /// Truncation parameter
         float eps_trunc;
 
-        params() : eps_strong(0.25f), do_trunc(true), eps_trunc(0.2f) { }
+        params() : eps_strong(0.4f), do_trunc(true), eps_trunc(0.2f) { }
     } prm;
 
     ruge_stuben(const params& prm = params()) : prm(prm) { }

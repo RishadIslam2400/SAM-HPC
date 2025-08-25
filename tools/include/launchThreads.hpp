@@ -17,7 +17,7 @@ int num_threads = 1;
 constexpr bool SEQUENTIAL = false;
 int num_threads = 16;
 #endif */
-constexpr bool SEQUENTIAL = false;
+// constexpr bool SEQUENTIAL = false;
 int num_threads = 32;
 
 template <typename Func>

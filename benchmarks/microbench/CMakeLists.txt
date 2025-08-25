@@ -35,9 +35,3 @@ target_link_options(threshold_benchmark
     PRIVATE
     $<$<CONFIG:Debug>:-fsanitize=address>
 )
-
-option(ENABLE_SEQUENTIAL "Enable sequential execution path" OFF)
-if (ENABLE_SEQUENTIAL)
-    message(STATUS "Sequential execution selected")
-    target_compile_definitions(microbench PRIVATE SEQUENTIAL_ENABLED)
-endif()

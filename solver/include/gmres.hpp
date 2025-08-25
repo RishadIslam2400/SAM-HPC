@@ -130,6 +130,12 @@ public:
                 }
                 // H(j+1,j) is the norm of the now-orthogonalized vector.
                 H(j + 1, j) = norm(v_new);
+
+                // Add a check for the "lucky break" or breakdown.
+                /* if (H(j + 1, j) < std::numeric_limits<T>::epsilon()) {
+                    break; 
+                } */
+
                 // Normalize the new basis vector to have length 1.
                 axpby((1 / H(j + 1, j)), v_new, T(0), v_new);
 
@@ -179,6 +185,10 @@ public:
                 P.apply(dx, tmp);
                 axpby(T(1), tmp, T(1), x);
             }
+
+            // Added for more robustness
+            residual(rhs, A, x, r); // This calculates r = b - A*x
+            norm_r = norm(r);       // This updates norm_r for the check at the top of the next loop
         }
 
         return std::make_tuple(iter, norm_r / norm_rhs);
