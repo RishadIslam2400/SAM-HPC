@@ -10,6 +10,8 @@
 #include "gauss_seidel.hpp"
 #include "ilu0.hpp"
 #include "iluk.hpp"
+#include "ilup.hpp"
+#include "ilut.hpp"
 
 void test_sam_solver_cd2d_1() {
     std::cout << "CD2D solve with GMRES (simple sparsity pattern)..." << std::flush;
@@ -330,10 +332,10 @@ void test_sam_solver_top_opt_3() {
 
     // Set up preconditioner P0 for the target matrix
     const size_t N = targetMatrix.m_rows;    
-    amg<double, ruge_stuben, iluk>::params amg_prm;
+    amg<double, ruge_stuben, ilut>::params amg_prm;
     amg_prm.npre = 2;
     amg_prm.npost = 2;
-    amg<double, ruge_stuben, iluk> P0(targetMatrix, amg_prm);
+    amg<double, ruge_stuben, ilut> P0(targetMatrix, amg_prm);
 
     // Solve source matrix with GMRES solver with and without map
     GMRES<double>::params prm;
@@ -352,7 +354,7 @@ void test_sam_solver_top_opt_3() {
 
 
     // Set up preconditioner P1 for the target matrix
-    amg<double, ruge_stuben, iluk> P1(sourceMatrix, amg_prm);
+    amg<double, ruge_stuben, ilut> P1(sourceMatrix, amg_prm);
 
     auto [without_map_iters, without_map_error] = solver_without_map.solve(sourceMatrix, P1, source_rhs, x_without_map);
     std::cout << "\n(without map) Iterations: " << without_map_iters << ", Relative Error: " << without_map_error << "..." << std::flush;
