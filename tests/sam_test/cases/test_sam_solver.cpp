@@ -8,6 +8,8 @@
 #include "damped_jacobi.hpp"
 #include "smoothed_aggregation.hpp"
 #include "gauss_seidel.hpp"
+#include "ilu0.hpp"
+#include "iluk.hpp"
 
 void test_sam_solver_cd2d_1() {
     std::cout << "CD2D solve with GMRES (simple sparsity pattern)..." << std::flush;
@@ -205,7 +207,7 @@ void test_sam_solver_cd2d_4() {
 }
 
 void test_sam_solver_top_opt_1() {
-    std::cout << "Topology Optmization solve with GMRES (simple sparsity pattern)..." << std::flush;
+    std::cout << "Topology Optmization solve with GMRES and AMG (simple sparsity pattern)..." << std::flush;
 
     CSRMatrix<double> targetMatrix;
     read_mat("/home/rishad/SAM-HPC/top_opt_matrices_small_csr/matrix_1.txt", targetMatrix);
@@ -243,6 +245,114 @@ void test_sam_solver_top_opt_1() {
 
     // Set up preconditioner P1 for the target matrix
     amg<double, ruge_stuben, damped_jacobi> P1(sourceMatrix, amg_prm);
+
+    auto [without_map_iters, without_map_error] = solver_without_map.solve(sourceMatrix, P1, source_rhs, x_without_map);
+    std::cout << "\n(without map) Iterations: " << without_map_iters << ", Relative Error: " << without_map_error << "..." << std::flush;
+
+    // Compute map
+    SparsityPattern<double, SimplePattern> pattern(sourceMatrix, SimplePattern());
+    pattern.computePattern();
+    CSRMatrix<double> map{};
+    SparseApproximateMap<double, SimplePattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
+
+    auto [with_map_iters, with_map_error] = solver_with_map.solve(sourceMatrix, P0, map, source_rhs, x_with_map);
+    std::cout << "\n(with map) Iterations: " << with_map_iters << ", Relative Error: " << with_map_error << "..." << std::flush;
+
+    std::cout << "OK" << std::endl;
+}
+
+void test_sam_solver_top_opt_2() {
+    std::cout << "Topology Optmization solve with GMRES and AMG ILU(0) Smoother(simple sparsity pattern)..." << std::flush;
+
+    CSRMatrix<double> targetMatrix;
+    read_mat("/home/rishad/SAM-HPC/top_opt_matrices_small_csr/matrix_1.txt", targetMatrix);
+    std::vector<double> target_rhs;
+    read_vec("/home/rishad/SAM-HPC/top_opt_rhs_small/rhs_1.txt", target_rhs);
+
+    CSRMatrix<double> sourceMatrix;
+    read_mat("/home/rishad/SAM-HPC/top_opt_matrices_small_csr/matrix_2.txt", sourceMatrix);
+    std::vector<double> source_rhs;
+    read_vec("/home/rishad/SAM-HPC/top_opt_rhs_small/rhs_2.txt", source_rhs);
+
+    // Set up preconditioner P0 for the target matrix
+    const size_t N = targetMatrix.m_rows;    
+    amg<double, ruge_stuben, ilu0>::params amg_prm;
+    amg_prm.npre = 2;
+    amg_prm.npost = 2;
+    amg<double, ruge_stuben, ilu0> P0(targetMatrix, amg_prm);
+
+    // Solve source matrix with GMRES solver with and without map
+    GMRES<double>::params prm;
+    prm.pside = precondSide::left;
+    GMRES<double> solver_with_map(N, prm);
+    GMRES<double> solver_without_map(N, prm);
+    GMRES<double> solver_init(N, prm);
+
+    std::vector<double> x_with_map(N, 0.0);
+    std::vector<double> x_without_map(N, 0.0);
+    std::vector<double> x_init(N, 0.0);
+
+    // Solve initial matrix
+    auto [init_iters, init_error] = solver_init.solve(targetMatrix, P0, target_rhs, x_init);
+    std::cout << "\n(A0) Iterations: " << init_iters << ", Relative Error: " << init_error << "..." << std::flush;
+
+
+    // Set up preconditioner P1 for the target matrix
+    amg<double, ruge_stuben, ilu0> P1(sourceMatrix, amg_prm);
+
+    auto [without_map_iters, without_map_error] = solver_without_map.solve(sourceMatrix, P1, source_rhs, x_without_map);
+    std::cout << "\n(without map) Iterations: " << without_map_iters << ", Relative Error: " << without_map_error << "..." << std::flush;
+
+    // Compute map
+    SparsityPattern<double, SimplePattern> pattern(sourceMatrix, SimplePattern());
+    pattern.computePattern();
+    CSRMatrix<double> map{};
+    SparseApproximateMap<double, SimplePattern>::computeMap(targetMatrix, sourceMatrix, pattern, map);
+
+    auto [with_map_iters, with_map_error] = solver_with_map.solve(sourceMatrix, P0, map, source_rhs, x_with_map);
+    std::cout << "\n(with map) Iterations: " << with_map_iters << ", Relative Error: " << with_map_error << "..." << std::flush;
+
+    std::cout << "OK" << std::endl;
+}
+
+void test_sam_solver_top_opt_3() {
+    std::cout << "Topology Optmization solve with GMRES and AMG ILU(k) Smoother(simple sparsity pattern)..." << std::flush;
+
+    CSRMatrix<double> targetMatrix;
+    read_mat("/home/rishad/SAM-HPC/top_opt_matrices_small_csr/matrix_1.txt", targetMatrix);
+    std::vector<double> target_rhs;
+    read_vec("/home/rishad/SAM-HPC/top_opt_rhs_small/rhs_1.txt", target_rhs);
+
+    CSRMatrix<double> sourceMatrix;
+    read_mat("/home/rishad/SAM-HPC/top_opt_matrices_small_csr/matrix_2.txt", sourceMatrix);
+    std::vector<double> source_rhs;
+    read_vec("/home/rishad/SAM-HPC/top_opt_rhs_small/rhs_2.txt", source_rhs);
+
+    // Set up preconditioner P0 for the target matrix
+    const size_t N = targetMatrix.m_rows;    
+    amg<double, ruge_stuben, iluk>::params amg_prm;
+    amg_prm.npre = 2;
+    amg_prm.npost = 2;
+    amg<double, ruge_stuben, iluk> P0(targetMatrix, amg_prm);
+
+    // Solve source matrix with GMRES solver with and without map
+    GMRES<double>::params prm;
+    prm.pside = precondSide::left;
+    GMRES<double> solver_with_map(N, prm);
+    GMRES<double> solver_without_map(N, prm);
+    GMRES<double> solver_init(N, prm);
+
+    std::vector<double> x_with_map(N, 0.0);
+    std::vector<double> x_without_map(N, 0.0);
+    std::vector<double> x_init(N, 0.0);
+
+    // Solve initial matrix
+    auto [init_iters, init_error] = solver_init.solve(targetMatrix, P0, target_rhs, x_init);
+    std::cout << "\n(A0) Iterations: " << init_iters << ", Relative Error: " << init_error << "..." << std::flush;
+
+
+    // Set up preconditioner P1 for the target matrix
+    amg<double, ruge_stuben, iluk> P1(sourceMatrix, amg_prm);
 
     auto [without_map_iters, without_map_error] = solver_without_map.solve(sourceMatrix, P1, source_rhs, x_without_map);
     std::cout << "\n(without map) Iterations: " << without_map_iters << ", Relative Error: " << without_map_error << "..." << std::flush;

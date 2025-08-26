@@ -43,7 +43,7 @@ public:
         // Verbose output
         bool verbose;
 
-        params() : M(30), pside(precondSide::right), maxIter(1000), tol(1e-8), absTol(std::numeric_limits<T>::min()), ns_search(false), verbose(false) {
+        params() : M(30), pside(precondSide::right), maxIter(10000), tol(1e-8), absTol(std::numeric_limits<T>::min()), ns_search(false), verbose(false) {
 
         }
     };
@@ -187,8 +187,8 @@ public:
             }
 
             // Added for more robustness
-            residual(rhs, A, x, r); // This calculates r = b - A*x
-            norm_r = norm(r);       // This updates norm_r for the check at the top of the next loop
+            // residual(rhs, A, x, r); // This calculates r = b - A*x
+            // norm_r = norm(r);       // This updates norm_r for the check at the top of the next loop
         }
 
         return std::make_tuple(iter, norm_r / norm_rhs);
