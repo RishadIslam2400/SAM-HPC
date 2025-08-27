@@ -33,7 +33,6 @@ public:
     iluk(const CSRMatrix<T> &A, const params &prm = params()) : prm(prm) {
         // Get matrix dimensions and number of non-zeros.
         const size_t n = A.m_rows;
-        std::cout << "Total rows: " << n << std::endl;
         size_t Anz = A.m_nnz;
 
         // Storage for the L (Lower triangular) factor in CSR format
@@ -134,12 +133,6 @@ public:
             Uptr.push_back(Ucol.size());
         }
 
-        /* ilu = std::make_shared<ilu_solve_iterative<T>>(
-                std::make_shared<CSRMatrix<T>>(n, n, Lval, Lptr, Lcol),
-                std::make_shared<CSRMatrix<T>>(n, n, Uval, Uptr, Ucol),
-                D, prm.solve); */
-
-        ilu = std::make_shared<ilu_solve_direct<T>>(
         ilu = std::make_shared<ilu_solve_iterative<T>>(
                 std::make_shared<CSRMatrix<T>>(n, n, Lval, Lptr, Lcol),
                 std::make_shared<CSRMatrix<T>>(n, n, Uval, Uptr, Ucol),
@@ -149,11 +142,6 @@ public:
                 std::make_shared<CSRMatrix<T>>(n, n, Lval, Lptr, Lcol),
                 std::make_shared<CSRMatrix<T>>(n, n, Uval, Uptr, Ucol),
                 D, prm.solve); */
-    }
-
-    void apply(const std::vector<T> &rhs, std::vector<T> &x) const {
-        x = rhs;
-        ilu->solve(x);
     }
 
     void apply(const std::vector<T> &rhs, std::vector<T> &x) const {
@@ -175,11 +163,6 @@ public:
         residual(rhs, A, x, tmp);
         ilu->solve(tmp);
         axpby(prm.damping, tmp, T(1), x);
-    }
-
-    void apply(const std::vector<T> &rhs, std::vector<T> &x) const {
-        x = rhs;
-        ilu->solve(x);
     }
 
     // TODO: bytes method
