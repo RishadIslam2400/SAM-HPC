@@ -16,15 +16,15 @@ K="${3:-$DEFAULT_K}"
 TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
 OUTPUT_FILE="top_opt_results_${TIMESTAMP}.txt"
 BENCHMARK_EXE="./build/benchmarks/top_opt_bench"
-THREADS="1 2 4 8 16 32 64 96 128 160"
-#THREADS="64"
+# THREADS="1 2 4 8 16 32 64 96 128 160"
+THREADS="64"
 
 # Build the project only if the executable doesn't exist.
 build_if_needed() {
     if [ ! -f "$BENCHMARK_EXE" ]; then
         echo "Building SAM HPC..."
-        export CC=gcc-12
-        export CXX=g++-12
+        export CC=clang-18
+        export CXX=clang++-18
         cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=off -DENABLE_BENCHMARKS=on
         cmake --build build
     else

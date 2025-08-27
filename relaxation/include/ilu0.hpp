@@ -23,7 +23,7 @@ struct ilu0 {
     /// Constructor that performs the ILU(0) factorization.
     /// @param A   The input sparse matrix in CSR format to be factorized.
     /// @param prm The parameters for the factorization and solver.
-    ilu0(const CSRMatrix<T> &A, const params &prm) : prm(prm) {
+    ilu0(const CSRMatrix<T> &A, const params &prm = params()) : prm(prm) {
         const size_t n = A.m_rows;
 
         // Step 1: Count the number of non-zeros for L and U factors ---
@@ -250,7 +250,7 @@ struct ilu0 {
 
     /// Applies the preconditioner as a standalone solver.
     /// This computes x = M^-1 * b.
-    void apply(const CSRMatrix<T> &A, const std::vector<T> &rhs, std::vector<T> &x) const {
+    void apply(const std::vector<T> &rhs, std::vector<T> &x) const {
         x = rhs;
         ilu->solve(x);
     }

@@ -8,6 +8,8 @@
 #include "gauss_seidel.hpp"
 #include "gmres.hpp"
 #include "timer.hpp"
+#include "ilu0.hpp"
+#include "iluk.hpp"
 
 #include <map>
 
@@ -22,7 +24,7 @@ template <typename PatternType, typename... PatternArgs>
 void run_benchmark(
     const config_t& cfg,
     const CSRMatrix<double>& targetMatrix,
-    const amg<double, ruge_stuben, damped_jacobi>& P_0,
+    const iluk<double>& P_0,
     const GMRES<double>::params& prm,
     std::map<std::string, BenchmarkResults>& results,
     const std::string& pattern_name,
@@ -68,7 +70,7 @@ void run_benchmark(
 void run_benchmark(
     const config_t& cfg,
     const CSRMatrix<double>& targetMatrix,
-    const amg<double, ruge_stuben, damped_jacobi>& P_0,
+    const iluk<double>& P_0,
     const GMRES<double>::params& prm,
     SparsityPattern<double, SimplePattern>& pattern,
     std::map<std::string, BenchmarkResults>& results)
@@ -128,12 +130,18 @@ int main(int argc, char** argv) {
     std::vector<double> r_40 = read_vec<double>(filepath.c_str());
     std::vector<double> x_40(targetMatrix.m_cols, 0.0);
 
+    std::cout << "Data load done!" << std::endl;
+
     // Compute the preconditioner
-    amg<double, ruge_stuben, damped_jacobi>::params amg_param;
+    /* amg<double, ruge_stuben, ilu0>::params amg_param;
     amg_param.npre = 3;
     amg_param.npost = 3;
     amg_param.ncycle = 2;
-    amg<double, ruge_stuben, damped_jacobi> P_40(targetMatrix, amg_param);
+    amg<double, ruge_stuben, ilu0> P_40(targetMatrix, amg_param); */
+    iluk<double>::params ilu_prm;
+    ilu_prm.k = 5;
+    iluk<double> P_40(targetMatrix, ilu_prm);
+    std::cout << "Preconditioner Done!" << std::endl;
     GMRES<double>::params prm;
     prm.pside = precondSide::right;
     prm.M = 50;

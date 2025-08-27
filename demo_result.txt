@@ -1,8 +1,0 @@
-demo results
-----------Parallel----------
-Threads: 2
-# name, matrix_dir, rhs_dir, iters, threads:
-column threshold benchmark, /home/rishad/SAM-HPC/top_opt_matrices_small_csr/, /home/rishad/SAM-HPC/top_opt_matrices_small_csr/, 20, 2
-Target matrix : A0
-Source matrix: A5
-Simple Sparsity Pattern (SAM computation): 

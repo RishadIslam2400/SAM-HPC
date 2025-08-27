@@ -17,14 +17,15 @@ struct iluk {
         T damping;
 
         /// Parameters for sparse triangular system solver
-        // typename ilu_solve_iterative<T>::params solve;
-        typename ilu_solve_direct<T>::params solve;
+        typename ilu_solve_iterative<T>::params solve;
+        // typename ilu_solve_direct<T>::params solve;
 
         params() : k(1), damping(1) {}
     } prm;
 
-    iluk(const CSRMatrix<T> &A, const params &prm) : prm(prm) {
+    iluk(const CSRMatrix<T> &A, const params &prm = params()) : prm(prm) {
         const size_t n = A.m_rows;
+        std::cout << "Total rows: " << n << std::endl;
 
         size_t Anz = A.m_nnz;
 
@@ -52,6 +53,7 @@ struct iluk {
         sparse_vector w(n, prm.k);
 
         for(size_t i = 0; i < n; ++i) {
+            std::cout << "Starting row " << i << std::endl;
             w.reset(i);
 
             for(auto a = A.rowBegin(i); a; ++a) {
@@ -75,7 +77,14 @@ struct iluk {
                     Lcol.push_back(e.col);
                     Lval.push_back(e.val);
                 } else if (e.col == i) {
-                    (*D)[i] = 1 / e.val;
+                    const T tolerance = T(1e-10);
+                    T pivot = e.val;
+
+                    if (std::abs(pivot) < tolerance) {
+                        pivot = (pivot >= 0) ? tolerance : -tolerance;
+                    }
+
+                    (*D)[i] = 1 / pivot;
                 } else {
                     Ucol.push_back(e.col);
                     Uval.push_back(e.val);
@@ -87,15 +96,15 @@ struct iluk {
             Uptr.push_back(Ucol.size());
         }
 
-        /* ilu = std::make_shared<ilu_solve_iterative<T>>(
-                std::make_shared<CSRMatrix<T>>(n, n, Lptr, Lcol, Lval),
-                std::make_shared<CSRMatrix<T>>(n, n, Uptr, Ucol, Uval),
-                D, prm.solve); */
-
-        ilu = std::make_shared<ilu_solve_direct<T>>(
+        ilu = std::make_shared<ilu_solve_iterative<T>>(
                 std::make_shared<CSRMatrix<T>>(n, n, Lval, Lptr, Lcol),
                 std::make_shared<CSRMatrix<T>>(n, n, Uval, Uptr, Ucol),
                 D, prm.solve);
+
+        /* ilu = std::make_shared<ilu_solve_direct<T>>(
+                std::make_shared<CSRMatrix<T>>(n, n, Lval, Lptr, Lcol),
+                std::make_shared<CSRMatrix<T>>(n, n, Uval, Uptr, Ucol),
+                D, prm.solve); */
     }
 
     void apply_pre(const CSRMatrix<T> &A, const std::vector<T> &rhs,
@@ -114,7 +123,7 @@ struct iluk {
         axpby(prm.damping, tmp, T(1), x);
     }
 
-    void apply(const CSRMatrix<T>&, const std::vector<T> &rhs, std::vector<T> &x) const {
+    void apply(const std::vector<T> &rhs, std::vector<T> &x) const {
         x = rhs;
         ilu->solve(x);
     }
@@ -122,8 +131,8 @@ struct iluk {
     // TODO: bytes method
 
 private:
-    // std::shared_ptr<ilu_solve_iterative<T>> ilu;
-    std::shared_ptr<ilu_solve_direct<T>> ilu;
+    std::shared_ptr<ilu_solve_iterative<T>> ilu;
+    //std::shared_ptr<ilu_solve_direct<T>> ilu;
 
     struct nonzero {
         ptrdiff_t  col;
