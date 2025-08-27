@@ -19,8 +19,8 @@ struct ilut {
         T damping;
 
         /// Parameters for sparse triangular system solver
-        // typename ilu_solve_iterative<T>::params solve;
-        typename ilu_solve_direct<T>::params solve;
+        typename ilu_solve_iterative<T>::params solve;
+        // typename ilu_solve_direct<T>::params solve;
 
         params() : p(2), tau(1e-2f), damping(1) {}
     } prm;
@@ -105,8 +105,8 @@ struct ilut {
         L->m_nnz = L->m_row_pointers[n];
         U->m_nnz = U->m_row_pointers[n];
 
-        // ilu = std::make_shared<ilu_solve_iterative<T>>(L, U, D, prm.solve);
-        ilu = std::make_shared<ilu_solve_direct<T>>(L, U, D, prm.solve);
+        ilu = std::make_shared<ilu_solve_iterative<T>>(L, U, D, prm.solve);
+        // ilu = std::make_shared<ilu_solve_direct<T>>(L, U, D, prm.solve);
     }
 
     void apply_pre(const CSRMatrix<T> &A, const std::vector<T> &rhs,
@@ -133,8 +133,8 @@ struct ilut {
     // TODO: bytes method
 
     private:
-        // std::shared_ptr<ilu_solve_iterative<T>> ilu;
-        std::shared_ptr<ilu_solve_direct<T>> ilu;
+        std::shared_ptr<ilu_solve_iterative<T>> ilu;
+        // std::shared_ptr<ilu_solve_direct<T>> ilu;
 
         struct sparse_vector {
             struct nonzero {

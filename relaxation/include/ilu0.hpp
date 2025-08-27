@@ -143,38 +143,11 @@ struct ilu0 {
                 }
             }
 
-            // Get rid of zeros in the factors
-            /* Lhead = L->m_row_pointers[i];
-            Uhead = U->m_row_pointers[i];
-
-            for(size_t j = Lhead, e = L->m_row_pointers[i + 1]; j < e; ++j) {
-                T v = L->m_vals[j];
-                if (v != T(0)) {
-                    L->m_col_indices[Lhead] = L->m_col_indices[j];
-                    L->m_vals[Lhead] = v;
-                    ++Lhead;
-                }
-            }
-
-            for(size_t j = Uhead, e = U->m_row_pointers[i + 1]; j < e; ++j) {
-                T v = U->m_vals[j];
-                if (v != T(0)) {
-                    U->m_col_indices[Uhead] = U->m_col_indices[j];
-                    U->m_vals[Uhead] = v;
-                    ++Uhead;
-                }
-            }
-            L->m_row_pointers[i + 1] = Lhead;
-            U->m_row_pointers[i + 1] = Uhead; */
-
             // Cleanup Phase
             // Reset the pointers in the work vector for the current row's sparsity pattern.
             for(size_t j = row_beg; j < row_end; ++j)
                 work[A.m_col_indices[j]] = NULL;
         }
-
-        // L->m_nnz = Lhead;
-        // U->m_nnz = Uhead;
 
         // Compact the L matrix in-place
         size_t new_Lnz = 0;
