@@ -28,7 +28,7 @@ add_subdirectory(qr_bench)
 add_subdirectory(microbench)
 
 add_executable(weather_bench weather_benchmark.cpp)
-target_link_libraries(weather_bench PUBLIC sam common solver)
+target_link_libraries(weather_bench PUBLIC sam common solver TBB::tbb)
 target_compile_options(weather_bench
     PRIVATE
 
@@ -40,6 +40,7 @@ target_compile_options(weather_bench
     # Release options
     $<$<CONFIG:Release>:-O3>
     $<$<CONFIG:Release>:-DNDEBUG>
+    $<$<CONFIG:Release>:-march=native>
 )
 target_link_options(weather_bench
     PRIVATE

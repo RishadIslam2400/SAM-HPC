@@ -5,3 +5,5 @@ data*
 top_opt*
 cd2d*
 nohup.out
+weather_matrices_18x27/
+weather_rhs_18x27/

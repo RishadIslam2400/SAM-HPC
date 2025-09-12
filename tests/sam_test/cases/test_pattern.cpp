@@ -28,7 +28,7 @@ void testSimpleSparsityPattern()
     CSRMatrix<int> m1(3, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
-    SparsityPattern<int, SimplePattern> simplePattern(m1, SimplePattern{});
+    SparsityPattern<int, SimplePattern> simplePattern(m1, m1, SimplePattern{});
     simplePattern.computePattern();
     const CSRMatrix<int>* recievedPattern = simplePattern.getPattern();
 
@@ -65,7 +65,7 @@ void testGlobalSparsityPattern1()
     CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
-    SparsityPattern<double, GlobalThresholdPattern> globalPattern(m1, GlobalThresholdPattern{0.001});
+    SparsityPattern<double, GlobalThresholdPattern> globalPattern(m1, m1, GlobalThresholdPattern{0.001});
     globalPattern.computePattern();
     const CSRMatrix<int> *recievedPattern = globalPattern.getPattern();
 
@@ -104,7 +104,7 @@ void testGlobalSparsityPattern2()
     CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
-    SparsityPattern<double, GlobalThresholdPattern> globalPattern(m1, GlobalThresholdPattern{4.00});
+    SparsityPattern<double, GlobalThresholdPattern> globalPattern(m1, m1, GlobalThresholdPattern{4.00});
     globalPattern.computePattern();
     const CSRMatrix<int> *recievedPattern = globalPattern.getPattern();
 
@@ -143,7 +143,7 @@ void testColumnSparsityPattern()
     CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
-    SparsityPattern<double, ColumnThresholdPattern> columnPattern(m1, ColumnThresholdPattern{0.5});
+    SparsityPattern<double, ColumnThresholdPattern> columnPattern(m1, m1, ColumnThresholdPattern{0.5});
     columnPattern.computePattern();
     const CSRMatrix<int> *recievedPattern = columnPattern.getPattern();
 
@@ -181,7 +181,7 @@ void testFixedNNZSparsityPattern()
     CSRMatrix<double> m1(4, 4, vals1, rowPointers1, colIndices1);
 
     // Generate the sparsity pattern
-    SparsityPattern<double, FixedNNZPattern> fixedNNZPattern(m1, FixedNNZPattern{2});
+    SparsityPattern<double, FixedNNZPattern> fixedNNZPattern(m1, m1, FixedNNZPattern{2});
     fixedNNZPattern.computePattern();
     const CSRMatrix<int> *recievedPattern = fixedNNZPattern.getPattern();
 

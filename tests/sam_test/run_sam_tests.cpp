@@ -19,13 +19,14 @@ int main()
     // testCD2D2();
     // testCD2D3();
     // testCD2D4();
-    // // testTopOpt1();
+    // testTopOpt1();
     // test_sam_solver_cd2d_1();
     // test_sam_solver_cd2d_2();
     // test_sam_solver_cd2d_3();
     // test_sam_solver_cd2d_4();
     // test_sam_solver_top_opt_1();
     // test_sam_solver_top_opt_2();
-    test_sam_solver_top_opt_3();
+    // test_sam_solver_top_opt_3();
+    test_sam_solver_weather_1();
     return 0;
 }

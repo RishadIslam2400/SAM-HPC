@@ -10,7 +10,10 @@ struct SimplePattern {};
 struct GlobalThresholdPattern { double globalThreshold; };
 struct ColumnThresholdPattern { double columnThreshold; };
 struct FixedNNZPattern { size_t fixedNNZ; };
-struct combinedThresholdPattern { double thresh; };
+struct combinedThresholdPattern { 
+    double global_thresh;
+    double column_thresh;
+};
 
 // @todo: perform set union between the computed sparsity pattern and the target matrix patterns
 // so that while computing the map we dont skip any non-zero entries from the target matrix
@@ -20,26 +23,11 @@ class SparsityPattern {
 public:
     SparsityPattern() = delete;
 
-    SparsityPattern(const CSRMatrix<T> &originalMatrix, const PatternType &type, int level = 2)
-        : m_originalMatrix(originalMatrix), m_type(type), m_level(level), m_pattern(nullptr) {}
+    SparsityPattern(const CSRMatrix<T> &originalMatrix, const CSRMatrix<T> &targetMatrix, const PatternType &type, int level = 2)
+        : m_originalMatrix(originalMatrix), m_targetMatrix(targetMatrix), m_type(type), m_level(level), m_pattern(nullptr) {}
     
-    SparsityPattern(const SparsityPattern &other) : m_originalMatrix(other.m_originalMatrix), m_type(other.m_type), m_level(other.m_level) {
-        if (other.m_pattern)
-            m_pattern = std::make_unique<CSRMatrix<int>>(*other.m_pattern);
-    }
-
-    SparsityPattern &operator=(const SparsityPattern &other) {
-        if (this != &other) {
-            m_originalMatrix = other.m_originalMatrix;
-            m_type = other.m_type;
-            m_level = other.m_level;
-            m_pattern.release();
-            if (other.m_pattern)
-                m_pattern = std::make_unique<CSRMatrix<int>>(*other.m_pattern);
-        }
-
-        return *this;
-    }
+    SparsityPattern(const SparsityPattern &other) = delete;
+    SparsityPattern &operator=(const SparsityPattern &other) = delete;
 
     SparsityPattern(SparsityPattern&&) = default;
     SparsityPattern& operator=(SparsityPattern&&) = default;
@@ -65,9 +53,9 @@ public:
         else if constexpr (std::is_same_v<PatternType, FixedNNZPattern>)
             computeFixedNNZPattern(m_type.fixedNNZ);
         else if constexpr (std::is_same_v<PatternType, combinedThresholdPattern>)
-            computeCombinedPattern(m_type.thresh);
+            computeCombinedPattern(m_type.global_thresh, m_type.column_thresh);
         else
-            static_assert(std::is_void_v<T>, "Unsupported pattern type");
+            static_assert(!std::is_same_v<T,T>, "Unsupported pattern type");
     }
 
     const CSRMatrix<int> *getPattern() const {
@@ -79,8 +67,87 @@ public:
         return m_pattern ? m_pattern->m_nnz : 0;
     }
 
+    // For pattern union after extension
+    std::shared_ptr<CSRMatrix<int>> pattern_union() {
+        // Integrate the target matrix into the pattern and produce the final pattern
+        assert(m_pattern && "Initial pattern must be computed before union.");
+        
+        std::shared_ptr<CSRMatrix<int>> final_pattern = std::make_shared<CSRMatrix<int>>();
+        final_pattern->m_rows = m_pattern->m_rows;
+        final_pattern->m_cols = m_pattern->m_cols;
+        final_pattern->m_row_pointers.resize(final_pattern->m_rows + 1, 0);
+
+        tbb::enumerable_thread_specific<std::vector<int>> local_markers(final_pattern->m_cols, -1);
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, final_pattern->m_rows), [&](const tbb::blocked_range<size_t>& r) {
+            std::vector<int>& marker = local_markers.local();
+            for (size_t i = r.begin(); i < r.end(); ++i) {
+                size_t cols = 0;
+
+                for (size_t j = m_pattern->m_row_pointers[i], e = m_pattern->m_row_pointers[i + 1]; j < e; ++j) {
+                    const size_t colIdx = m_pattern->m_col_indices[j];
+                    if (marker[colIdx] != static_cast<int>(i)) {
+                        marker[colIdx] = static_cast<int>(i);
+                        cols++;
+                    }
+                }
+
+                for (size_t j = m_targetMatrix.m_row_pointers[i], e = m_targetMatrix.m_row_pointers[i + 1]; j < e; ++j) {
+                    const size_t colIdx = m_targetMatrix.m_col_indices[j];
+                    if (marker[colIdx] != static_cast<int>(i)) {
+                        marker[colIdx] = static_cast<int>(i);
+                        cols++;
+                    }
+                }
+
+                final_pattern->m_row_pointers[i + 1] = cols;
+            }
+        });
+
+        final_pattern->m_nnz = final_pattern->scanRowSize();
+        final_pattern->m_col_indices.resize(final_pattern->m_nnz, 0);
+        final_pattern->m_vals.resize(final_pattern->m_nnz, 1);
+
+        // local_markers.clear();
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, final_pattern->m_rows), [&](const tbb::blocked_range<size_t>& r) {
+            std::vector<int>& marker = local_markers.local();
+            for (size_t i = r.begin(); i < r.end(); ++i) {
+                const size_t rowBeg = final_pattern->m_row_pointers[i];
+                size_t rowEnd = rowBeg;
+
+                for (size_t j = m_pattern->m_row_pointers[i], e = m_pattern->m_row_pointers[i + 1]; j < e; ++j) {
+                    size_t colIdx = m_pattern->m_col_indices[j];
+
+                    if (marker[colIdx] < static_cast<int>(rowBeg)) {
+                        marker[colIdx] = static_cast<int>(rowEnd);
+                        final_pattern->m_col_indices[rowEnd] = colIdx;
+                        rowEnd++;
+                    }
+                }
+
+                for (size_t j = m_targetMatrix.m_row_pointers[i], e = m_targetMatrix.m_row_pointers[i + 1]; j < e; ++j) {
+                    size_t colIdx = m_targetMatrix.m_col_indices[j];
+
+                    if (marker[colIdx] < static_cast<int>(rowBeg)) {
+                        marker[colIdx] = static_cast<int>(rowEnd);
+                        final_pattern->m_col_indices[rowEnd] = colIdx;
+                        rowEnd++;
+                    }
+                }
+
+                // Clean up the marker entries used for the current row.
+                /* for (size_t k = rowBeg; k < rowEnd; ++k) {
+                    marker[final_pattern->m_col_indices[k]] = -1;
+                } */
+
+                
+                sortRow(final_pattern->m_col_indices.data() + rowBeg, final_pattern->m_vals.data() + rowBeg, static_cast<int>(rowEnd - rowBeg));
+            }
+        });
+    }
+
 private:
     const CSRMatrix<T> &m_originalMatrix;      // source matrix
+    const CSRMatrix<T> &m_targetMatrix;        // target matrix
     PatternType m_type;                        // sparsification technique
     int m_level;                               // level of pattern extension
     std::unique_ptr<CSRMatrix<int>> m_pattern; // computed pattern
@@ -99,31 +166,33 @@ private:
         // sam::extend_pattern(*m_pattern, m_level);
     }
 
-    void buildPatternFromFilteredCols(std::vector<std::vector<size_t>>& filtered_cols) {
+    template<typename Func>
+    void buildPattern(Func filter) {
         m_pattern = std::make_unique<CSRMatrix<int>>();
         m_pattern->m_rows = m_originalMatrix.m_rows;
         m_pattern->m_cols = m_originalMatrix.m_cols;
         m_pattern->m_row_pointers.resize(m_pattern->m_rows + 1, 0);
 
-        // Compute the row pointers
-        for (size_t i = 0; i < m_pattern->m_rows; ++i) {
-            m_pattern->m_row_pointers[i + 1] = m_pattern->m_row_pointers[i] + filtered_cols[i].size();
-        }
+        // Count nnz per row
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_pattern->m_rows), [&](const tbb::blocked_range<size_t> &r) {
+            for (size_t i = r.begin(); i < r.end(); ++i) {
+                m_pattern->m_row_pointers[i + 1] = filter(i, nullptr); // no write operation
+            }
+        });
 
+        std::partial_sum(m_pattern->m_row_pointers.begin(), m_pattern->m_row_pointers.end(), m_pattern->m_row_pointers.begin());
         m_pattern->m_nnz = m_pattern->m_row_pointers.back();
-        m_pattern->m_col_indices.resize(m_pattern->m_nnz);
+        m_pattern->m_col_indices.resize(m_pattern->m_nnz, 0);
         m_pattern->m_vals.resize(m_pattern->m_nnz, 1);
 
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_pattern->m_rows),
-            [&](const tbb::blocked_range<size_t>& r) {
-                for (size_t i = r.begin(); i < r.end(); ++i) {
-                    if (!filtered_cols[i].empty()) {
-                        size_t *dest = m_pattern->m_col_indices.data() + m_pattern->m_row_pointers[i];
-                        std::copy(filtered_cols[i].begin(), filtered_cols[i].end(), dest);
-                    }
-                 }
+        // Fill the column indices
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_originalMatrix.m_rows), [&](const tbb::blocked_range<size_t> &r) {
+            for (size_t i = r.begin(); i < r.end(); ++i) {
+                size_t *dest = m_pattern->m_col_indices.data() + m_pattern->m_row_pointers[i];
+                filter(i, dest);
+                std::sort(dest, m_pattern->m_col_indices.data() + m_pattern->m_row_pointers[i + 1]);
             }
-        );
+        });
 
         sam::extend_pattern(*m_pattern, m_level);
     }
@@ -133,118 +202,153 @@ private:
         std::vector<T> scaledValues = m_originalMatrix.m_vals;
         diagonalScaling(scaledValues, diag);
 
-        std::vector<std::vector<size_t>> filtered_cols(m_originalMatrix.m_rows);
-
-        // Count number of non-zero elements in each row
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_originalMatrix.m_rows),
-            [&](const tbb::blocked_range<size_t>& r) {
-                for (size_t i = r.begin(); i < r.end(); ++i) {
-                    bool diagonal_found = false;
-
-                    const size_t rowStart = m_originalMatrix.m_row_pointers[i];
-                    const size_t rowEnd = m_originalMatrix.m_row_pointers[i + 1];
-                    filtered_cols[i].reserve(rowEnd - rowStart);
-                    for (size_t j = rowStart; j < rowEnd; ++j) {
-                        const size_t colIdx = m_originalMatrix.m_col_indices[j];
-                        if (colIdx == i) {
-                            diagonal_found = true;
-                            filtered_cols[i].push_back(colIdx);
-                        } else if (std::abs(scaledValues[j]) > globalThreshold) {
-                            filtered_cols[i].push_back(colIdx);
-                        }
-                    }
-
-                    if (!diagonal_found) {
-                        filtered_cols[i].push_back(i);
-                    }
-
-                    std::sort(filtered_cols[i].begin(), filtered_cols[i].end());
+        auto filter = [&](size_t i, size_t* dest) {
+            size_t count = 0;
+            bool diagonal_found = false;
+            for (size_t j = m_originalMatrix.m_row_pointers[i]; j < m_originalMatrix.m_row_pointers[i + 1]; ++j) {
+                const size_t colIdx = m_originalMatrix.m_col_indices[j];
+                bool keep = false;
+                if (colIdx == i) {
+                    keep = true;
+                    diagonal_found = true;
+                } else if (std::abs(scaledValues[j]) > globalThreshold) {
+                    keep = true;
+                }
+                if (keep) {
+                    if (dest) dest[count] = colIdx;
+                    count++;
                 }
             }
-        );
+            if (!diagonal_found) {
+                if (dest) dest[count] = i; // Ensure diagonal is present
+                count++;
+            }
+            return count;
+        };
 
-        buildPatternFromFilteredCols(filtered_cols);
+        buildPattern(filter);
     }
 
     void computeColumnThresholdPattern(const double tau) {
-        std::vector<std::vector<size_t>> filtered_cols(m_originalMatrix.m_rows); 
+        const std::vector<T> diag = diagonal<diagonalType::forScaling>(m_originalMatrix);
+        std::vector<T> scaledValues = m_originalMatrix.m_vals;
+        diagonalScaling(scaledValues, diag);
 
-        // Count number of non-zero elements in each row
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_originalMatrix.m_rows),
-            [&](const tbb::blocked_range<size_t>& r) {
-                for (size_t i = r.begin(); i < r.end(); ++i) {
-                    const size_t rowStart = m_originalMatrix.m_row_pointers[i];
-                    const size_t rowEnd = m_originalMatrix.m_row_pointers[i + 1];
+        auto filter = [&](size_t i, size_t* dest) {
+            const size_t rowStart = m_originalMatrix.m_row_pointers[i];
+            const size_t rowEnd = m_originalMatrix.m_row_pointers[i + 1];
 
-                    // Find max absolute value in the row
-                    T maxVal = 0;
-                    for (size_t j = rowStart; j < rowEnd; ++j) {
-                        maxVal = std::max(maxVal, std::abs(m_originalMatrix.m_vals[j]));
-                    }
-                    const T threshold = (1 - tau) * maxVal;
+            // Find max absolute value in the row
+            T maxVal = 0;
+            for (size_t j = rowStart; j < rowEnd; ++j) {
+                maxVal = std::max(maxVal, std::abs(scaledValues[j]));
+            }
+            const T threshold = (1 - tau) * maxVal;
 
-                    // Count non-zeros using the just-computed threshold
-                    bool diagonal_found = false;
-                    filtered_cols[i].reserve(rowEnd - rowStart);
-                    for (size_t j = rowStart; j < rowEnd; ++j) {
-                        const size_t colIdx = m_originalMatrix.m_col_indices[j];
-                        if (colIdx == i) {
-                            diagonal_found = true;
-                            filtered_cols[i].push_back(colIdx);
-                        } else if (std::abs(m_originalMatrix.m_vals[j]) > threshold) {
-                            filtered_cols[i].push_back(colIdx);
-                        }
-                    }
 
-                    if (!diagonal_found) {
-                        filtered_cols[i].push_back(i);
-                    }
-
-                    std::sort(filtered_cols[i].begin(), filtered_cols[i].end());
+            size_t count = 0;
+            bool diagonal_found = false;
+            for (size_t j = rowStart; j < rowEnd; ++j) {
+                const size_t colIdx = m_originalMatrix.m_col_indices[j];
+                bool keep = false;
+                if (colIdx == i) {
+                    keep = true;
+                    diagonal_found = true;
+                } else if (std::abs(scaledValues[j]) > threshold) {
+                    keep = true;
+                }
+                if (keep) {
+                    if (dest) dest[count] = colIdx;
+                    count++;
                 }
             }
-        );
-
-        buildPatternFromFilteredCols(filtered_cols);
+            if (!diagonal_found) {
+                if (dest) dest[count] = i; // Ensure diagonal is present
+                count++;
+            }
+            return count;
+        };
+        
+        buildPattern(filter);
     }
 
     void computeFixedNNZPattern(const size_t lfil) {
-        std::vector<std::vector<size_t>> filtered_cols(m_originalMatrix.m_rows);
+        const std::vector<T> diag = diagonal<diagonalType::forScaling>(m_originalMatrix);
+        std::vector<T> scaledValues = m_originalMatrix.m_vals;
+        diagonalScaling(scaledValues, diag);
 
-        // Count number of non-zero elements in each row
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_originalMatrix.m_rows), [&](const tbb::blocked_range<size_t>& r) {
-            for (size_t i = r.begin(); i < r.end(); ++i) {
-                const size_t rowStart = m_originalMatrix.m_row_pointers[i];
-                const size_t rowEnd = m_originalMatrix.m_row_pointers[i + 1];
-                const size_t nnz = rowEnd - rowStart;
+        tbb::enumerable_thread_specific<std::vector<std::pair<T, size_t>>> local_entries;
+        auto filter = [&](size_t i, size_t *dest) {
+            const size_t rowStart = m_originalMatrix.m_row_pointers[i];
+            const size_t rowEnd = m_originalMatrix.m_row_pointers[i + 1];
+            const size_t nnz = rowEnd - rowStart;
 
-                if (nnz == 0) continue;
+            size_t count = std::min(lfil, nnz);
 
-                std::vector<std::pair<T, size_t>> col_entries;
+            if (dest) {
+                auto &col_entries = local_entries.local();
+                col_entries.clear();
                 col_entries.reserve(nnz);
 
                 for (size_t j = rowStart; j < rowEnd; ++j) {
-                    col_entries.emplace_back(std::abs(m_originalMatrix.m_vals[j]), m_originalMatrix.m_col_indices[j]);
+                    col_entries.emplace_back(std::abs(scaledValues[j]), m_originalMatrix.m_col_indices[j]);
                 }
 
-                size_t count = std::min(lfil, nnz);
-                if (count == 0 && nnz > 0) continue;
-
-                // Partitions the column indices, count is the pivot
                 std::nth_element(col_entries.begin(), col_entries.begin() + count - 1, col_entries.end(), std::greater<>{});
 
-                filtered_cols[i].reserve(count);
                 for (size_t k = 0; k < count; ++k) {
-                    filtered_cols[i].push_back(col_entries[k].second);
+                    dest[k] = col_entries[k].second;
                 }
-
-                std::sort(filtered_cols[i].begin(), filtered_cols[i].end());
             }
-        });
 
-        buildPatternFromFilteredCols(filtered_cols);
+            return count;
+        };
+
+        buildPattern(filter);
     }
-    void computeCombinedPattern(const double thresh);
+
+    void computeCombinedPattern(const double global_thresh, const double column_thresh) {
+        const std::vector<T> diag = diagonal<diagonalType::forScaling>(m_originalMatrix);
+        std::vector<T> scaledValues = m_originalMatrix.m_vals;
+        diagonalScaling(scaledValues, diag);
+
+        auto filter = [&](size_t i, size_t* dest) {
+            const size_t rowStart = m_originalMatrix.m_row_pointers[i];
+            const size_t rowEnd = m_originalMatrix.m_row_pointers[i + 1];
+
+            // Find max absolute value in the row
+            T maxVal = 0;
+            for (size_t j = rowStart; j < rowEnd; ++j) {
+                maxVal = std::max(maxVal, std::abs(scaledValues[j]));
+            }
+            const T threshold = (1 - column_thresh) * maxVal;
+
+
+            size_t count = 0;
+            bool diagonal_found = false;
+            for (size_t j = rowStart; j < rowEnd; ++j) {
+                const size_t colIdx = m_originalMatrix.m_col_indices[j];
+                bool keep = false;
+                if (colIdx == i) {
+                    keep = true;
+                    diagonal_found = true;
+                } else if (std::abs(scaledValues[j]) > threshold && std::abs(scaledValues[j]) > global_thresh) {
+                    keep = true;
+                }
+                if (keep) {
+                    if (dest) dest[count] = colIdx;
+                    count++;
+                }
+            }
+            if (!diagonal_found) {
+                if (dest) dest[count] = i; // Ensure diagonal is present
+                count++;
+            }
+            return count;
+        };
+
+        buildPattern(filter);
+    }
 
     // =============== Helper Functions ================
     void diagonalScaling(std::vector<T> &values, const std::vector<T> &diagonal) {
@@ -270,13 +374,6 @@ private:
         });
     }
 };
-
-template <typename T, typename PatternType>
-void SparsityPattern<T, PatternType>::computeCombinedPattern(const double thresh) {
-    // Perform diagonal scaling
-    // compute global threshold from local thresholds
-    // filter rows with threshold values
-}
 
 template <typename X, typename PatternType>
 bool operator==(const SparsityPattern<X, PatternType> &lhs, const SparsityPattern<X, PatternType> &rhs) {

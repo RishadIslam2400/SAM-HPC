@@ -50,14 +50,14 @@ void run_benchmark(
             // Time Map Computation
             timer.start();
             PatternType pattern_params(std::forward<PatternArgs>(args)...);
-            SparsityPattern<double, PatternType> pattern(A_i, pattern_params);
+            SparsityPattern<double, PatternType> pattern(A_i, targetMatrix, pattern_params);
             pattern.computePattern();
             SparseApproximateMap<double, PatternType>::computeMap(targetMatrix, A_i, pattern, map);
             results[pattern_name].map_time_ms += timer.elapsed();
 
             // Time Solver
-            GMRES<double> solver(A_i.m_cols, prm);
             timer.start(); // Start timer right before the solve call
+            GMRES<double> solver(A_i.m_cols, prm);
             auto [iters, error] = solver.solve(A_i, P_0, map, r_i, x_i);
             results[pattern_name].solver_time_ms += timer.elapsed();
 
@@ -99,8 +99,8 @@ void run_benchmark(
             results[pattern_name].map_time_ms += timer.elapsed();
 
             // Time Solver
-            GMRES<double> solver(A_i.m_cols, prm);
             timer.start(); // Start timer right before the solve call
+            GMRES<double> solver(A_i.m_cols, prm);
             auto [iters, error] = solver.solve(A_i, P_0, map, r_i, x_i);
             results[pattern_name].solver_time_ms += timer.elapsed();
 
@@ -154,7 +154,7 @@ int main(int argc, char** argv) {
     auto [init_iters, init_error] = solver_init.solve(targetMatrix, P_40, r_40, x_40);
     std::cout << "Iterations: " << init_iters << ", Relative Error: " << init_error << "..." << std::endl;
 
-    SparsityPattern<double, SimplePattern> pattern_init(targetMatrix, SimplePattern{});
+    SparsityPattern<double, SimplePattern> pattern_init(targetMatrix, targetMatrix, SimplePattern{});
     pattern_init.computePattern();
 
     // The sequence contains A_40 to A_166
