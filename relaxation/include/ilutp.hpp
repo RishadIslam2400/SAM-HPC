@@ -42,6 +42,7 @@ public:
         m_ilu.setDroptol(prm.droptol);
         m_ilu.setFillfactor(prm.fill_factor);
         m_ilu.analyzePattern(eigen_A);
+        m_ilu.factorize(eigen_A);
 
         if(m_ilu.info() != Eigen::Success) {
             throw std::runtime_error("Eigen ILUTP factorization failed.");

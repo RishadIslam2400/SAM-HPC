@@ -10,6 +10,7 @@
 #include "timer.hpp"
 #include "ilu0.hpp"
 #include "iluk.hpp"
+#include "ilutp.hpp"
 
 #include <map>
 
@@ -24,7 +25,7 @@ template <typename PatternType, typename... PatternArgs>
 void run_benchmark(
     const config_t& cfg,
     const CSRMatrix<double>& targetMatrix,
-    const iluk<double>& P_0,
+    const ilutp<double>& P_0,
     const GMRES<double>::params& prm,
     std::map<std::string, BenchmarkResults>& results,
     const std::string& pattern_name,
@@ -70,7 +71,7 @@ void run_benchmark(
 void run_benchmark(
     const config_t& cfg,
     const CSRMatrix<double>& targetMatrix,
-    const iluk<double>& P_0,
+    const ilutp<double>& P_0,
     const GMRES<double>::params& prm,
     SparsityPattern<double, SimplePattern>& pattern,
     std::map<std::string, BenchmarkResults>& results)
@@ -138,14 +139,15 @@ int main(int argc, char** argv) {
     amg_param.npost = 3;
     amg_param.ncycle = 2;
     amg<double, ruge_stuben, ilu0> P_40(targetMatrix, amg_param); */
-    iluk<double>::params ilu_prm;
-    ilu_prm.k = 5;
-    iluk<double> P_40(targetMatrix, ilu_prm);
+    ilutp<double>::params ilu_prm;
+    ilu_prm.fill_factor = 250;
+    ilu_prm.droptol = 1e-3;
+    ilutp<double> P_40(targetMatrix, ilu_prm);
     std::cout << "Preconditioner Done!" << std::endl;
     GMRES<double>::params prm;
     prm.pside = precondSide::right;
-    prm.M = 50;
-    prm.maxIter = 10000;
+    prm.M = 2000;
+    prm.maxIter = 2000;
     GMRES<double> solver_init(targetMatrix.m_cols, prm);
 
     // Solve the system
@@ -165,9 +167,9 @@ int main(int argc, char** argv) {
     run_benchmark<SimplePattern>(cfg, targetMatrix, P_40, prm, results, "Simple Sparsity Pattern");
     run_benchmark(cfg, targetMatrix, P_40, prm, pattern_init, results);
 
-    run_benchmark<GlobalThresholdPattern>(cfg, targetMatrix, P_40, prm, results, "Global Sparsity (thresh=0.01)", 0.01);
-    run_benchmark<GlobalThresholdPattern>(cfg, targetMatrix, P_40, prm, results, "Global Sparsity (thresh=0.001)", 0.001);
-    run_benchmark<GlobalThresholdPattern>(cfg, targetMatrix, P_40, prm, results, "Global Sparsity (thresh=0.0001)", 0.0001);
+    // run_benchmark<GlobalThresholdPattern>(cfg, targetMatrix, P_40, prm, results, "Global Sparsity (thresh=0.01)", 0.01);
+    // run_benchmark<GlobalThresholdPattern>(cfg, targetMatrix, P_40, prm, results, "Global Sparsity (thresh=0.001)", 0.001);
+    // run_benchmark<GlobalThresholdPattern>(cfg, targetMatrix, P_40, prm, results, "Global Sparsity (thresh=0.0001)", 0.0001);
 
     run_benchmark<ColumnThresholdPattern>(cfg, targetMatrix, P_40, prm, results, "Column Sparsity (thresh=0.7)", 0.7);
     run_benchmark<ColumnThresholdPattern>(cfg, targetMatrix, P_40, prm, results, "Column Sparsity (thresh=0.8)", 0.8);

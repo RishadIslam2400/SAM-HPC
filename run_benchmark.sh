@@ -6,7 +6,7 @@ set -e # Exit immediately if a command exits with a non-zero status.
 # Usage: ./run_benchmark.sh [MATRIX_DIR] [RHS_DIR] [K]
 DEFAULT_MATRIX_DIR="/home/mds222/SAM-HPC/top_opt_matrices_paper_small_csr/"
 DEFAULT_RHS_DIR="/home/mds222/SAM-HPC/top_opt_paper_rhs_small/"
-DEFAULT_K=10
+DEFAULT_K=20
 
 MATRIX_DIR="${1:-$DEFAULT_MATRIX_DIR}"
 RHS_DIR="${2:-$DEFAULT_RHS_DIR}"
@@ -16,8 +16,8 @@ K="${3:-$DEFAULT_K}"
 TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
 OUTPUT_FILE="top_opt_results_${TIMESTAMP}.txt"
 BENCHMARK_EXE="./build/benchmarks/top_opt_bench"
-# THREADS="1 2 4 8 16 32 64 96 128 160"
-THREADS="64"
+THREADS="1 2 4 6 8 12 16 24 32 48 64 72 80 90 96 120 150 180 "
+# THREADS="180"
 
 # Build the project only if the executable doesn't exist.
 build_if_needed() {

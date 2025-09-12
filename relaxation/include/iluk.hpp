@@ -103,14 +103,6 @@ public:
                     Lcol.push_back(e.col);
                     Lval.push_back(e.val);
                 } else if (e.col == i) {
-                    const T tolerance = T(1e-10);
-                    T pivot = e.val;
-
-                    if (std::abs(pivot) < tolerance) {
-                        pivot = (pivot >= 0) ? tolerance : -tolerance;
-                    }
-
-                    (*D)[i] = 1 / pivot;
                     // Diagonal element
                     const T tolerance = T(1e-10);
                     T pivot = e.val;
