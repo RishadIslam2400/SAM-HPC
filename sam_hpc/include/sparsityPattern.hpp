@@ -107,7 +107,7 @@ public:
         final_pattern->m_col_indices.resize(final_pattern->m_nnz, 0);
         final_pattern->m_vals.resize(final_pattern->m_nnz, 1);
 
-        // local_markers.clear();
+        local_markers.clear();
         tbb::parallel_for(tbb::blocked_range<size_t>(0, final_pattern->m_rows), [&](const tbb::blocked_range<size_t>& r) {
             std::vector<int>& marker = local_markers.local();
             for (size_t i = r.begin(); i < r.end(); ++i) {
@@ -143,6 +143,8 @@ public:
                 sortRow(final_pattern->m_col_indices.data() + rowBeg, final_pattern->m_vals.data() + rowBeg, static_cast<int>(rowEnd - rowBeg));
             }
         });
+
+        return final_pattern;
     }
 
 private:

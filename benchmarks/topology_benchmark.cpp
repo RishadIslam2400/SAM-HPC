@@ -52,7 +52,8 @@ void run_benchmark(
             PatternType pattern_params(std::forward<PatternArgs>(args)...);
             SparsityPattern<double, PatternType> pattern(A_i, targetMatrix, pattern_params);
             pattern.computePattern();
-            SparseApproximateMap<double, PatternType>::computeMap(targetMatrix, A_i, pattern, map);
+            auto final_pattern = pattern.pattern_union();
+            SparseApproximateMap<double, PatternType>::computeMap(targetMatrix, A_i, *final_pattern, map);
             results[pattern_name].map_time_ms += timer.elapsed();
 
             // Time Solver
@@ -178,6 +179,9 @@ int main(int argc, char** argv) {
     run_benchmark<FixedNNZPattern>(cfg, targetMatrix, P_40, prm, results, "Fixed Sparsity (thresh = 3)", 3);
     run_benchmark<FixedNNZPattern>(cfg, targetMatrix, P_40, prm, results, "Fixed Sparsity (thresh = 5)", 5);
     run_benchmark<FixedNNZPattern>(cfg, targetMatrix, P_40, prm, results, "Fixed Sparsity (thresh = 7)", 7);
+
+    run_benchmark<combinedThresholdPattern>(cfg, targetMatrix, P_40, prm, results, "Combined Pattern (global thresh=0.1, column thresh = 0.8)", 0.1, 0.8);
+    run_benchmark<combinedThresholdPattern>(cfg, targetMatrix, P_40, prm, results, "Combined Pattern (global thresh=0.1, column thresh = 0.9)", 0.1, 0.9);
 
 
     // Report Final Results
