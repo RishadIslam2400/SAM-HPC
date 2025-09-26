@@ -105,4 +105,42 @@ public:
             }
         });
     }
+
+    static void post_filtration(const CSRMatrix<T>& map, CSRMatrix<T>& final_map, T threshold) {
+        final_map.m_rows = map.m_rows;
+        final_map.m_cols = map.m_cols;
+        final_map.m_row_pointers.resize(final_map.m_rows + 1, 0);
+
+        // count non-zero in the final map
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, final_map.m_rows), [&](const tbb::blocked_range<size_t> &r) {
+            for (size_t i = r.begin(); i < r.end(); ++i) {
+                int count = 0;
+                for (size_t j = map.m_row_pointers[i], e = map.m_row_pointers[i + 1]; j < e; ++j) {
+                    if (map.m_vals[j] >= threshold) {
+                        count++;
+                    }
+                }
+
+                final_map.m_row_pointers[i + 1] = count;
+            }
+        });
+
+        final_map.m_nnz = final_map.scanRowSize();
+        final_map.m_col_indices.resize(final_map.m_nnz, 0);
+        final_map.m_vals.resize(final_map.m_nnz, T(0));
+
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, final_map.m_rows), [&](const tbb::blocked_range<size_t>& r) {
+            for (size_t i = r.begin(); i < r.end(); ++i) {
+                size_t current_pos = final_map.m_row_pointers[i];
+                
+                for (size_t j = map.m_row_pointers[i]; j < map.m_row_pointers[i + 1]; ++j) {
+                    if (map.m_vals[j] >= threshold) {
+                        final_map.m_col_indices[current_pos] = map.m_col_indices[j];
+                        final_map.m_vals[current_pos] = map.m_vals[j];
+                        current_pos++;
+                    }
+                }
+            }
+        });
+    }
 };
